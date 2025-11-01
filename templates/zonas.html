@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Zonas{% endblock %}
+{% block header %}Zonas Operativas{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Analítica por zona -->
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light d-flex align-items-center">
+        <i class="fa-solid fa-location-dot me-2"></i><span>Denuncias por Zona</span>
+      </div>
+      <div class="card-body">
+        {% set total = stats.total_denuncias %}
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle mb-0">
+            <thead class="table-primary">
+              <tr>
+                <th class="text-center">ZONA</th>
+                <th class="text-center">TOTAL</th>
+                <th>PROPORCIÓN</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for zona, cant in stats.denuncias_por_zona.items() %}
+              {% set p = (cant/total*100) if total>0 else 0 %}
+              <tr>
+                <td class="text-center fw-semibold">Zona {{ zona }}</td>
+                <td class="text-center">{{ cant }}</td>
+                <td>
+                  <div class="progress">
+                    <div class="progress-bar bg-info" style="width: {{ p }}%">{{ "%.1f"|format(p) }}%</div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr class="table-light">
+                <th class="text-end">TOTAL</th>
+                <th class="text-center">{{ total }}</th>
+                <th></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CRUD visual (placeholder) -->
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light d-flex align-items-center justify-content-between flex-wrap">
+        <div class="d-flex align-items-center">
+          <i class="fa-solid fa-map me-2"></i><span>Administración de Zonas</span>
+        </div>
+        <button class="btn btn-sm btn-primary"><i class="fa-solid fa-plus me-1"></i> Nueva Zona</button>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+            <tr><th style="width:10%">ID</th><th style="width:25%">Nombre</th><th>Descripción</th><th style="width:20%" class="text-center">Acciones</th></tr>
+            </thead>
+            <tbody>
+              {% for zona, cant in stats.denuncias_por_zona.items() %}
+              <tr>
+                <td>{{ zona }}</td>
+                <td>Zona {{ zona }}</td>
+                <td class="small text-muted">Descripción de la Zona {{ zona }} (placeholder)</td>
+                <td class="text-center">
+                  <button class="btn btn-outline-primary btn-sm me-1"><i class="fa-solid fa-pen"></i></button>
+                  <button class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-trash"></i></button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="alert alert-secondary small mt-2">
+          <i class="fa-solid fa-circle-info me-2"></i>
+          Área visual. Más adelante conectaremos este CRUD a BD.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

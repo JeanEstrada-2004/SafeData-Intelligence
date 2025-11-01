@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Panel Principal - Sistema de Denuncias{% endblock %}
+{% block header %}Panel Principal{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Total -->
+  <div class="col-xl-3 col-md-6 mb-4">
+    <div class="card border-left-primary shadow h-100 py-2">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-xs fw-bold text-primary text-uppercase mb-1">Total de Denuncias</div>
+            <div class="h2 fw-bold text-gray-800">{{ stats.total_denuncias }}</div>
+          </div>
+          <i class="fas fa-file-alt fa-2x text-primary"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estados -->
+  <div class="col-xl-9 col-lg-8">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3 d-flex align-items-center justify-content-between">
+        <h6 class="m-0 fw-bold text-primary">Estados de Denuncia</h6>
+      </div>
+      <div class="card-body">
+        {% if stats.estados_denuncia %}
+        <div class="row">
+          {% for estado, cantidad in stats.estados_denuncia.items() %}
+          <div class="col-md-3 mb-3">
+            <div class="card text-center border-left-info">
+              <div class="card-body">
+                <h5 class="card-title text-info mb-1">{{ cantidad }}</h5>
+                <p class="card-text text-muted mb-0">{{ estado }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-inbox fa-3x mb-3"></i>
+          <p>Sin datos de estado</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Denuncias por Turno -->
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Denuncias por Turno</h6>
+      </div>
+      <div class="card-body">
+        {% if stats.denuncias_por_turno %}
+        <div class="row">
+          {% for turno, cantidad in stats.denuncias_por_turno.items() %}
+          <div class="col-md-3 mb-3">
+            <div class="card text-center border-left-info">
+              <div class="card-body">
+                <h5 class="card-title text-info mb-1">{{ cantidad }}</h5>
+                <p class="card-text text-muted mb-0">{{ turno }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-inbox fa-3x mb-3"></i>
+          <p>No hay denuncias registradas</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Gráficos: Últimos 3 meses & Evolución del mes -->
+<div class="row">
+  <div class="col-xl-6">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Comparativo Últimos 3 Meses</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartMeses" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Evolución Diaria del Mes</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartMesActual" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Denuncias por Zonas -->
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Denuncias por Zonas</h6>
+      </div>
+      <div class="card-body">
+        {% if stats.denuncias_por_zona %}
+        <div class="row">
+          {% for zona, cantidad in stats.denuncias_por_zona.items() %}
+          <div class="col-md-3 mb-3">
+            <div class="card text-center border-left-info">
+              <div class="card-body">
+                <h5 class="card-title text-info mb-1">{{ cantidad }}</h5>
+                <p class="card-text text-muted mb-0">Zona {{ zona }}</p>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-inbox fa-3x mb-3"></i>
+          <p>No hay datos para mostrar</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tipos de Denuncia -->
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow mb-4">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Tipos de Denuncia Más Frecuentes</h6>
+      </div>
+      <div class="card-body">
+        {% if stats.tipos_denuncia %}
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead class="table-primary">
+              <tr>
+                <th>Tipo de Denuncia</th>
+                <th width="150">Cantidad</th>
+                <th width="220">Porcentaje</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for tipo, cantidad in stats.tipos_denuncia.items() %}
+              <tr>
+                <td>{{ tipo }}</td>
+                <td class="text-center"><span class="badge bg-info">{{ cantidad }}</span></td>
+                <td>
+                  {% set p = (cantidad / stats.total_denuncias * 100) if stats.total_denuncias > 0 else 0 %}
+                  <div class="progress">
+                    <div class="progress-bar bg-info" style="width: {{ p }}%">{{ "%.1f"|format(p) }}%</div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-chart-bar fa-3x mb-3"></i>
+          <p>No hay datos para mostrar</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Acciones rápidas -->
+<div class="row">
+  <div class="col-12">
+    <div class="card shadow">
+      <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Acciones Rápidas</h6></div>
+      <div class="card-body text-center">
+        <a href="/carga-denuncias" class="btn btn-primary btn-lg me-3"><i class="fas fa-upload me-2"></i> Cargar Nuevas Denuncias</a>
+        <a href="/listado-denuncias" class="btn btn-outline-primary btn-lg"><i class="fas fa-list me-2"></i> Ver Todas las Denuncias</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.border-left-primary{border-left:.25rem solid #4e73df!important}
+.border-left-info{border-left:.25rem solid #36b9cc!important}
+</style>
+<script>
+  // Datos del servidor para gráficos
+  const STATS = {{ stats_json | tojson }};
+
+  // Comparativo últimos 3 meses (bar)
+  const ctxMeses = document.getElementById('chartMeses');
+  if (ctxMeses && STATS.ult_3_meses_labels && STATS.ult_3_meses_counts) {
+    new Chart(ctxMeses, {
+      type: 'bar',
+      data: {
+        labels: STATS.ult_3_meses_labels,
+        datasets: [{ label: 'Denuncias', data: STATS.ult_3_meses_counts }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+
+  // Evolución diaria del mes (line)
+  const ctxMes = document.getElementById('chartMesActual');
+  if (ctxMes && STATS.mes_actual_labels && STATS.mes_actual_counts) {
+    new Chart(ctxMes, {
+      type: 'line',
+      data: {
+        labels: STATS.mes_actual_labels,
+        datasets: [{ label: 'Denuncias', data: STATS.mes_actual_counts, tension: .3, fill: false }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+</script>
+{% endblock %}

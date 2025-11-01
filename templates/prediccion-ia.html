@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Predicción IA{% endblock %}
+{% block header %}Predicción IA{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>
+                Parámetros de Análisis
+            </div>
+            <div class="card-body">
+                <form id="form-prediccion">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Zona</label>
+                        <select class="form-select" name="zona">
+                            {% for z in zonas %}
+                            <option value="{{ z }}">{{ z }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Turno</label>
+                        <select class="form-select" name="turno">
+                            <option value="mañana">Mañana</option>
+                            <option value="tarde">Tarde</option>
+                            <option value="noche">Noche</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tipo de Incidente</label>
+                        <input class="form-control" name="tipo" placeholder="Robo de celular, Violencia, etc.">
+                    </div>
+
+                    <button type="button" id="btn-predecir" class="btn btn-primary w-100">
+                        <i class="fa-solid fa-brain me-2"></i>Predecir Riesgo
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <i class="fa-solid fa-chart-line me-2"></i>
+                Resultado de Predicción
+            </div>
+            <div class="card-body" id="resultado-prediccion">
+                <div class="text-muted text-center py-5">
+                    <i class="fa-solid fa-magnifying-glass-chart fa-2x mb-3"></i>
+                    <p class="mb-0">
+                        Selecciona los parámetros y haz clic en "Predecir Riesgo".
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <i class="fa-solid fa-circle-info me-2"></i>
+                ¿Qué es esto?
+            </div>
+            <div class="card-body small text-muted">
+                <p class="mb-2">
+                    Este módulo estimará el <strong>nivel de riesgo</strong> en una zona y turno específicos,
+                    usando el histórico de denuncias cargadas en el sistema.
+                </p>
+                <ul class="mb-0">
+                    <li>Nivel Alto → requiere patrullaje inmediato.</li>
+                    <li>Nivel Medio → patrullaje preventivo.</li>
+                    <li>Nivel Bajo → monitoreo estándar.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ⚠ Por ahora esto es mock. Cuando creemos el endpoint /denuncias/prediccion,
+// este JS hará fetch al backend y pintará el resultado dinámicamente.
+
+document.getElementById("btn-predecir").addEventListener("click", async () => {
+    const form = document.getElementById("form-prediccion");
+    const zona = form.zona.value;
+    const turno = form.turno.value;
+    const tipo = form.tipo.value;
+
+    // simulación temporal del backend
+    const riesgoMock = "ALTO";
+    const probMock = "0.78";
+
+    const cont = document.getElementById("resultado-prediccion");
+    cont.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <div class="alert alert-danger">
+                    <strong>Riesgo ${riesgoMock}</strong><br>
+                    Probabilidad estimada: ${probMock}
+                </div>
+            </div>
+            <div class="col-md-6 small text-muted">
+                <p class="mb-1"><strong>Zona:</strong> ${zona}</p>
+                <p class="mb-1"><strong>Turno:</strong> ${turno}</p>
+                <p class="mb-0"><strong>Tipo incidente:</strong> ${tipo || "(cualquiera)"}</p>
+            </div>
+        </div>
+    `;
+});
+</script>
+{% endblock %}

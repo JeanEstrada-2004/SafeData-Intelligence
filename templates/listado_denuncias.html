@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Listado de Denuncias - Sistema de Denuncias{% endblock %}
+{% block header %}Listado de Denuncias{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <!-- Filtros -->
+    <div class="card shadow mb-4">
+      <div class="card-body">
+        <form id="filtrosForm" class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Zona</label>
+            <select class="form-select" id="filtroZona">
+              <option value="">Todas</option>
+              {% for z in range(1,8) %}
+              <option value="{{ z }}">Zona {{ z }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Tipo de Denuncia</label>
+            <select class="form-select" id="filtroTipo">
+              <option value="">Todos</option>
+              {% for t in tipos_unicos %}
+              <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Turno</label>
+            <select class="form-select" id="filtroTurno">
+              <option value="">Todos</option>
+              {% for t in turnos_unicos %}
+              <option value="{{ t }}">{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Fecha del suceso</label>
+            <input type="date" class="form-control" id="filtroFecha">
+          </div>
+          <div class="col-12">
+            <button type="button" class="btn btn-primary" onclick="aplicarFiltros()">
+              <i class="fas fa-filter me-2"></i>Filtrar
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="limpiarFiltros()">
+              <i class="fas fa-times me-2"></i>Limpiar
+            </button>
+            <span class="float-end">
+              <!-- usamos el largo del JSON que viene del backend -->
+              <strong id="totalRegistros">{{ denuncias_json|length }}</strong> denuncias encontradas
+            </span>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tabla (siempre se renderiza; las filas las pinta JS) -->
+    <div class="card shadow">
+      <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-table me-2"></i>Denuncias Registradas</h6>
+        <div>
+          <button class="btn btn-success btn-sm" onclick="exportarExcel()">
+            <i class="fas fa-file-excel me-1"></i>Exportar
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover" id="tablaDenuncias">
+            <thead class="table-primary">
+              <tr>
+                <th width="60">#</th>
+                <th>Fecha/Hora Suceso</th>
+                <th>Turno</th>
+                <th>Zona</th>
+                <th>Tipo</th>
+                <th>Lugar</th>
+                <th>Resultado</th>
+                <th>Sexo Víctima</th>
+                <th>Edad</th>
+                <th width="100">Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Paginación (cliente) -->
+        <nav aria-label="Paginación">
+          <ul class="pagination justify-content-center" id="paginacion"></ul>
+        </nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalle -->
+<div class="modal fade" id="detalleModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalle de Denuncia</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detalleContent"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let denuncias = {{ denuncias_json | default([], true) | tojson }};
+const usarCliente = Array.isArray(denuncias) && denuncias.length > 0;
+
+let filtradas = usarCliente ? [...denuncias] : [];
+const regsXPag = 10;
+let pag = 1;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!usarCliente) return;
+  // contador inicial
+  const total = document.getElementById('totalRegistros');
+  if (total) total.textContent = filtradas.length;
+  mostrarPagina(1);
+});
+
+function aplicarFiltros() {
+  if (!usarCliente) return;
+  const zona  = document.getElementById('filtroZona').value;
+  const tipo  = document.getElementById('filtroTipo').value;
+  const turno = document.getElementById('filtroTurno').value;
+  const fecha = document.getElementById('filtroFecha').value; // yyyy-mm-dd
+
+  filtradas = denuncias.filter(d => {
+    const okZona  = !zona  || String(d.zona_denuncia) === String(zona);
+    const okTipo  = !tipo  || (d.tipo_denuncia || '') === tipo;
+    const okTurno = !turno || (d.turno || '') === turno;
+    const okFecha = !fecha || (d.fecha_hora_suceso && d.fecha_hora_suceso.slice(0,10) === fecha);
+    return okZona && okTipo && okTurno && okFecha;
+  });
+  document.getElementById('totalRegistros').textContent = filtradas.length;
+  mostrarPagina(1);
+}
+
+function limpiarFiltros() {
+  if (!usarCliente) return;
+  document.getElementById('filtrosForm').reset();
+  filtradas = [...denuncias];
+  document.getElementById('totalRegistros').textContent = filtradas.length;
+  mostrarPagina(1);
+}
+
+function mostrarPagina(n) {
+  if (!usarCliente) return;
+  pag = n;
+  const ini = (n - 1) * regsXPag;
+  const fin = ini + regsXPag;
+  const datos = filtradas.slice(ini, fin);
+  const tbody = document.querySelector('#tablaDenuncias tbody');
+  tbody.innerHTML = '';
+  datos.forEach(d => tbody.appendChild(fila(d)));
+  paginar();
+}
+
+function fila(d) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="text-center">${d.id}</td>
+    <td>${d.fecha_hora_suceso ? new Date(d.fecha_hora_suceso).toLocaleString('es-PE') : '-'}</td>
+    <td>${d.turno || '-'}</td>
+    <td><span class="badge bg-info">Zona ${d.zona_denuncia}</span></td>
+    <td><span class="badge bg-warning text-dark">${d.tipo_denuncia || '-'}</span></td>
+    <td>${d.lugar_ocurrencia || '-'}</td>
+    <td>${d.resultado_ocurrencia || '-'}</td>
+    <td>${d.sexo_victima || '-'}</td>
+    <td class="text-center">${(d.edad_victima ?? '-')}</td>
+    <td class="text-center">
+      <button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${d.id})" title="Ver detalle">
+        <i class="fas fa-eye"></i>
+      </button>
+    </td>`;
+  return tr;
+}
+
+function paginar() {
+  const total = Math.ceil(filtradas.length / regsXPag);
+  const ul = document.getElementById('paginacion');
+  if (total <= 1) { ul.innerHTML = ''; return; }
+  let html = '';
+  if (pag > 1) html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(${pag-1})">Anterior</a></li>`;
+  for (let i=1;i<=total;i++) {
+    html += (i===pag)
+      ? `<li class="page-item active"><span class="page-link">${i}</span></li>`
+      : `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(${i})">${i}</a></li>`;
+  }
+  if (pag < total) html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(${pag+1})">Siguiente</a></li>`;
+  ul.innerHTML = html;
+}
+
+function verDetalle(id) {
+  if (!usarCliente) return;
+  const d = denuncias.find(x => x.id === id);
+  if (!d) return;
+  const html = `
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>ID:</strong> ${d.id}</p>
+        <p><strong>Fecha/Hora Suceso:</strong> ${d.fecha_hora_suceso ? new Date(d.fecha_hora_suceso).toLocaleString('es-PE') : '-'}</p>
+        <p><strong>Turno:</strong> ${d.turno || '-'}</p>
+        <p><strong>Zona:</strong> Zona ${d.zona_denuncia}</p>
+        <p><strong>Tipo:</strong> ${d.tipo_denuncia || '-'}</p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Lugar:</strong> ${d.lugar_ocurrencia || '-'}</p>
+        <p><strong>Resultado:</strong> ${d.resultado_ocurrencia || '-'}</p>
+        <p><strong>Sexo Víctima:</strong> ${d.sexo_victima || '-'}</p>
+        <p><strong>Edad:</strong> ${(d.edad_victima ?? '-')}</p>
+      </div>
+      <div class="col-12 mt-3">
+        <p><strong>Comentarios:</strong></p>
+        <div class="bg-light p-3 rounded">${d.comentarios || 'Sin comentarios'}</div>
+      </div>
+    </div>`;
+  document.getElementById('detalleContent').innerHTML = html;
+  new bootstrap.Modal(document.getElementById('detalleModal')).show();
+}
+
+function exportarExcel(){ alert('Exportación a Excel pendiente de implementar (servidor).'); }
+</script>
+{% endblock %}

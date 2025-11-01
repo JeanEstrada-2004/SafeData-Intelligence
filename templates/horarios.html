@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Horarios{% endblock %}
+{% block header %}Análisis por Horarios{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Columna izquierda: tabla analítica -->
+    <div class="col-12 col-xl-6">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light d-flex align-items-center">
+                <i class="fa-solid fa-clock me-2"></i>
+                <span>Frecuencia de Denuncias por Franja Horaria</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead class="table-primary">
+                            <tr>
+                                <th style="width:40%">FRANJA HORARIA</th>
+                                <th style="width:15%" class="text-center">DENUNCIAS</th>
+                                <th>INTENSIDAD</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">00:00 - 06:00</td>
+                                <td class="text-center">5</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-warning text-dark">0%</span>
+                                        <div class="progress flex-grow-1" style="height:6px;">
+                                            <div class="progress-bar bg-warning" style="width: 10%;"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">06:00 - 12:00</td>
+                                <td class="text-center">11</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-warning text-dark">0%</span>
+                                        <div class="progress flex-grow-1" style="height:6px;">
+                                            <div class="progress-bar bg-warning" style="width: 30%;"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">12:00 - 18:00</td>
+                                <td class="text-center">18</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-warning text-dark">0%</span>
+                                        <div class="progress flex-grow-1" style="height:6px;">
+                                            <div class="progress-bar bg-warning" style="width: 60%;"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">18:00 - 24:00</td>
+                                <td class="text-center">14</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-warning text-dark">0%</span>
+                                        <div class="progress flex-grow-1" style="height:6px;">
+                                            <div class="progress-bar bg-warning" style="width: 45%;"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light">
+                                <th class="text-end">TOTAL</th>
+                                <th class="text-center">48</th>
+                                <th></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna derecha: CRUD de horarios (solo visual) -->
+    <div class="col-12 col-xl-6">
+        <div class="card shadow-sm mb-4">
+
+            <!-- Header del CRUD -->
+            <div class="card-header bg-light d-flex align-items-center justify-content-between flex-wrap">
+                <div class="d-flex align-items-center">
+                    <i class="fa-solid fa-business-time me-2"></i>
+                    <span>Administración de Horarios</span>
+                </div>
+                <button class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-plus me-1"></i> Nuevo Horario
+                </button>
+            </div>
+
+            <!-- Tabla CRUD -->
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:15%">ID</th>
+                                <th style="width:30%">Franja Horaria</th>
+                                <th>Descripción / Uso</th>
+                                <th style="width:20%" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">1</td>
+                                <td>00:00 - 06:00</td>
+                                <td class="small text-muted">Turno madrugada / patrullaje reducido</td>
+                                <td class="text-center">
+                                    <button class="btn btn-outline-primary btn-sm me-1" title="Editar">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td class="fw-semibold">2</td>
+                                <td>06:00 - 12:00</td>
+                                <td class="small text-muted">Turno mañana / tránsito escolar-comercial</td>
+                                <td class="text-center">
+                                    <button class="btn btn-outline-primary btn-sm me-1" title="Editar">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td class="fw-semibold">3</td>
+                                <td>12:00 - 18:00</td>
+                                <td class="small text-muted">Turno tarde / actividad comercial alta</td>
+                                <td class="text-center">
+                                    <button class="btn btn-outline-primary btn-sm me-1" title="Editar">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td class="fw-semibold">4</td>
+                                <td>18:00 - 24:00</td>
+                                <td class="small text-muted">Turno noche / emergencias y delitos violentos</td>
+                                <td class="text-center">
+                                    <button class="btn btn-outline-primary btn-sm me-1" title="Editar">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" title="Eliminar">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Texto explicativo -->
+                <div class="alert alert-secondary small mt-3">
+                    <i class="fa-solid fa-circle-info me-2"></i>
+                    Aquí el administrador define las franjas horarias operativas y las puede renombrar o eliminar.
+                    Esta configuración se usará para:
+                    <strong>recomendaciones de patrullaje</strong> y <strong>predicción de riesgo por turno</strong>.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

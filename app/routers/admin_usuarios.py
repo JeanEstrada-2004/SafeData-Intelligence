@@ -1,4 +1,4 @@
-# app/routers/admin_users.py
+﻿# app/routers/admin_users.py
 """Admin de usuarios (solo Gerente)."""
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User
-from ..utils.security import audit_view, require_roles  # get_current_user no se usa aquí
+from ..utils.seguridad import audit_view, require_roles  # get_current_user no se usa aquÃ­
 
 # usa la misma ruta que el resto del proyecto
 BASE_DIR = Path(__file__).resolve().parents[2]
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# prefijo opcional; si no lo quieres, quítalo y deja como lo tenías
+# prefijo opcional; si no lo quieres, quÃ­talo y deja como lo tenÃ­as
 router = APIRouter(prefix="/admin", tags=["admin-users"])
 
 
@@ -42,7 +42,7 @@ def users_list(
         query = query.filter(User.is_active.is_(active == "true"))
     items = query.order_by(User.created_at.desc()).all()
     return templates.TemplateResponse(
-        "admin/users_list.html",
+        "admin/usuarios_lista.html",
         {
             "request": request,
             "items": items,
@@ -60,7 +60,7 @@ def users_new(
     _auth: User = Depends(require_roles("Gerente")),
 ):
     return templates.TemplateResponse(
-        "admin/user_form.html",
+        "admin/usuario_form.html",
         {"request": request, "item": None, "error": None},
     )
 
@@ -75,12 +75,12 @@ def users_create(
     db: Session = Depends(get_db),
     _auth: User = Depends(require_roles("Gerente")),
 ):
-    from ..utils.security import hash_password  # importar aquí si quieres evitar ciclos
+    from ..utils.seguridad import hash_password  # importar aquÃ­ si quieres evitar ciclos
 
     exists = db.query(User).filter(User.email == email).first()
     if exists:
         return templates.TemplateResponse(
-            "admin/user_form.html",
+            "admin/usuario_form.html",
             {"request": request, "item": None, "error": "Email ya registrado"},
             status_code=400,
         )
@@ -108,7 +108,7 @@ def users_edit(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return templates.TemplateResponse(
-        "admin/user_form.html",
+        "admin/usuario_form.html",
         {"request": request, "item": user, "error": None},
     )
 
@@ -124,7 +124,7 @@ def users_update(
     db: Session = Depends(get_db),
     _auth: User = Depends(require_roles("Gerente")),
 ):
-    from ..utils.security import hash_password
+    from ..utils.seguridad import hash_password
 
     user = db.get(User, user_id)
     if not user:
@@ -152,9 +152,10 @@ def users_delete(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    # baja lógica
+    # baja lÃ³gica
     user.is_active = False
     user.updated_at = datetime.utcnow()
     db.add(user)
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
+

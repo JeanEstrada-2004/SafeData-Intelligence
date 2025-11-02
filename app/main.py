@@ -1,4 +1,4 @@
-"""Punto de entrada principal de la aplicación FastAPI."""
+﻿"""Punto de entrada principal de la aplicaciÃ³n FastAPI."""
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,11 +9,11 @@ from . import crud, models
 from .database import engine, get_db, quick_db_check
 from .routers import denuncias as denuncias_router
 from .routers import mapa_calor as mapa_calor_router
-from .routers import auth as auth_router
-from .routers import admin_users as admin_users_router
-from .utils.security import try_get_current_user
+from .routers import autenticacion as auth_router
+from .routers import admin_usuarios as admin_users_router
+from .utils.seguridad import try_get_current_user
 
-# Crea tablas (no borra nada; si están creadas, no hace cambios)
+# Crea tablas (no borra nada; si estÃ¡n creadas, no hace cambios)
 models.Base.metadata.create_all(bind=engine)
 
 # Modo debug para ver el traceback completo en el navegador
@@ -94,7 +94,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         from fastapi.responses import RedirectResponse
 
         return RedirectResponse("/login", status_code=302)
-    """Renderiza el panel principal con estadísticas agregadas."""
+    """Renderiza el panel principal con estadÃ­sticas agregadas."""
 
     stats = crud.get_dashboard_stats(db)
 
@@ -124,7 +124,7 @@ def carga_denuncias(request: Request):
 
 @app.get("/listado-denuncias", response_class=HTMLResponse)
 def listado_denuncias(request: Request, db: Session = Depends(get_db)):
-    """Página de listado que delega la renderización de filas al navegador."""
+    """PÃ¡gina de listado que delega la renderizaciÃ³n de filas al navegador."""
 
     items = crud.listar_denuncias(db, limit=1000)
     tipos_unicos = sorted({x.tipo_denuncia for x in items if x.tipo_denuncia})
@@ -150,7 +150,7 @@ def prediccion_ia_page(request: Request):
 
 @app.get("/zonas", response_class=HTMLResponse)
 def zonas_page(request: Request, db: Session = Depends(get_db)):
-    """Renderiza estadísticas resumidas por zona."""
+    """Renderiza estadÃ­sticas resumidas por zona."""
 
     stats = crud.get_dashboard_stats(db)
     zonas_stats = _compat_zonas_label(getattr(stats, "denuncias_por_zona", {}))
@@ -177,13 +177,13 @@ def mapa_calor_page(request: Request):
 
 
 # ---------------------------
-# Endpoints de diagnóstico
+# Endpoints de diagnÃ³stico
 # ---------------------------
 
 
 @app.get("/health/db")
 def health_db():
-    """Conexión directa al motor (sin sesión) + COUNT(*)."""
+    """ConexiÃ³n directa al motor (sin sesión) + COUNT(*)."""
 
     info = quick_db_check()
     return {"ok": True, **info}
@@ -191,7 +191,7 @@ def health_db():
 
 @app.get("/health/stats")
 def health_stats(db: Session = Depends(get_db)):
-    """Verifica que el CRUD de estadísticas funciona con las columnas NUEVAS."""
+    """Verifica que el CRUD de estadÃ­sticas funciona con las columnas NUEVAS."""
 
     s = crud.get_dashboard_stats(db)
     return {
@@ -208,3 +208,4 @@ if __name__ == "__main__":  # pragma: no cover
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+

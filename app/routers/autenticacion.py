@@ -1,4 +1,4 @@
-"""Auth router: login/logout/forgot/reset + templates.
+﻿"""Auth router: login/logout/forgot/reset + templates.
 
 Stores JWT (HS256) in HttpOnly cookie `access_token`.
 """
@@ -16,8 +16,8 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import AuditAccess, PasswordResetToken, User
-from ..utils.mail import send_password_reset_email
-from ..utils.security import create_access_token, get_current_user, hash_password, try_get_current_user, verify_password
+from ..utils.correo import send_password_reset_email
+from ..utils.seguridad import create_access_token, get_current_user, hash_password, try_get_current_user, verify_password
 
 
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000")
@@ -41,7 +41,7 @@ def _audit(db: Session, request: Request, action: str, user: Optional[User] = No
 
 @router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse("iniciar_sesion.html", {"request": request, "error": None})
 
 
 @router.post("/login")
@@ -55,7 +55,7 @@ def login_post(
     if not user or not verify_password(password, user.hashed_password) or not user.is_active:
         _audit(db, request, "login_fail")
         return templates.TemplateResponse(
-            "login.html", {"request": request, "error": "Credenciales inválidas o usuario inactivo"}, status_code=400
+            "iniciar_sesion.html", {"request": request, "error": "Credenciales invÃ¡lidas o usuario inactivo"}, status_code=400
         )
 
     token = create_access_token(user.email, ACCESS_TOKEN_EXPIRES_MIN)
@@ -84,7 +84,7 @@ def logout(request: Request, db: Session = Depends(get_db), user: User = Depends
 
 @router.get("/forgot-password", response_class=HTMLResponse)
 def forgot_password_page(request: Request):
-    return templates.TemplateResponse("forgot_password.html", {"request": request, "sent": False, "error": None})
+    return templates.TemplateResponse("olvide_contrasena.html", {"request": request, "sent": False, "error": None})
 
 
 @router.post("/forgot-password", response_class=HTMLResponse)
@@ -93,7 +93,7 @@ def forgot_password_post(request: Request, email: str = Form(...), db: Session =
     if not user:
         _audit(db, request, "reset_request")
         return templates.TemplateResponse(
-            "forgot_password.html", {"request": request, "sent": True, "error": None}
+            "olvide_contrasena.html", {"request": request, "sent": True, "error": None}
         )
 
     token = secrets.token_urlsafe(48)
@@ -108,12 +108,12 @@ def forgot_password_post(request: Request, email: str = Form(...), db: Session =
         pass
 
     _audit(db, request, "reset_request", user)
-    return templates.TemplateResponse("forgot_password.html", {"request": request, "sent": True, "error": None})
+    return templates.TemplateResponse("olvide_contrasena.html", {"request": request, "sent": True, "error": None})
 
 
 @router.get("/reset-password", response_class=HTMLResponse)
 def reset_password_page(request: Request, token: str):
-    return templates.TemplateResponse("reset_password.html", {"request": request, "token": token, "error": None})
+    return templates.TemplateResponse("restablecer_contrasena.html", {"request": request, "token": token, "error": None})
 
 
 @router.post("/reset-password")
@@ -126,7 +126,7 @@ def reset_password_post(
 ):
     if new_password != confirm_password:
         return templates.TemplateResponse(
-            "reset_password.html", {"request": request, "token": token, "error": "Las contraseñas no coinciden"}, status_code=400
+            "restablecer_contrasena.html", {"request": request, "token": token, "error": "Las contraseÃ±as no coinciden"}, status_code=400
         )
 
     prt = (
@@ -136,7 +136,7 @@ def reset_password_post(
     )
     if not prt or prt.expires_at < datetime.now(timezone.utc):
         return templates.TemplateResponse(
-            "reset_password.html", {"request": request, "token": token, "error": "Token inválido o expirado"}, status_code=400
+            "restablecer_contrasena.html", {"request": request, "token": token, "error": "Token invÃ¡lido o expirado"}, status_code=400
         )
 
     user = db.get(User, prt.user_id)

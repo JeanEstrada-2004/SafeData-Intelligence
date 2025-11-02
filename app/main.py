@@ -9,6 +9,9 @@ from . import crud, models
 from .database import engine, get_db, quick_db_check
 from .routers import denuncias as denuncias_router
 from .routers import mapa_calor as mapa_calor_router
+from .routers import auth as auth_router
+from .routers import admin_users as admin_users_router
+from .utils.security import try_get_current_user
 
 # Crea tablas (no borra nada; si están creadas, no hace cambios)
 models.Base.metadata.create_all(bind=engine)
@@ -23,6 +26,25 @@ templates = Jinja2Templates(directory="templates")
 # API routers
 app.include_router(denuncias_router.router, prefix="/api/denuncias", tags=["denuncias"])
 app.include_router(mapa_calor_router.router, prefix="/api/map", tags=["mapa-calor"])
+app.include_router(auth_router.router)
+app.include_router(admin_users_router.router)
+
+# Middleware para inyectar usuario actual en request.state (para plantillas)
+@app.middleware("http")
+async def inject_current_user(request, call_next):
+    try:
+        from .database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            user = try_get_current_user(request, db)
+            request.state.current_user = user
+        finally:
+            db.close()
+    except Exception:
+        request.state.current_user = None
+    response = await call_next(request)
+    return response
 
 # ---------------------------
 # Helpers (compat & serialize)
@@ -67,6 +89,11 @@ def _serialize_denuncia(d) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
+    # Si no hay usuario autenticado, redirige a /login
+    if not getattr(request.state, "current_user", None):
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse("/login", status_code=302)
     """Renderiza el panel principal con estadísticas agregadas."""
 
     stats = crud.get_dashboard_stats(db)

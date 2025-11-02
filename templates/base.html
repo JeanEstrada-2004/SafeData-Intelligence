@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -9,9 +9,12 @@
     <link href="/static/css/style.css" rel="stylesheet">
 </head>
 <body>
+    {# Detectamos páginas de autenticación para ocultar sidebar y centrar formularios #}
+    {% set is_auth = 'login' in request.url.path or 'forgot-password' in request.url.path or 'reset-password' in request.url.path %}
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
+            {% if not is_auth %}
             <nav class="col-md-3 col-lg-2 d-md-block bg-primary sidebar collapse">
                 <div class="position-sticky pt-3">
                     <div class="text-center mb-4">
@@ -68,18 +71,30 @@
                                 Horarios
                             </a>
                         </li>
-                    </ul>
+                    {% if request.state and request.state.current_user and request.state.current_user.role == 'Gerente' %}<li class="nav-item"><a class="nav-link text-white {% if '/admin/users' in request.url.path %}active{% endif %}" href="/admin/users"><i class="fa-solid fa-users-gear me-2"></i>Usuarios</a></li>{% endif %}</ul>
 
 
                 </div>
             </nav>
+            {% endif %}
 
             <!-- Main content -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <main class="{% if is_auth %}col-12{% else %}col-md-9 ms-sm-auto col-lg-10{% endif %} px-md-4">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">{% block header %}Dashboard{% endblock %}</h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <small class="text-muted">
+                    <div class="d-flex align-items-center gap-3">
+                        {% if request.state and request.state.current_user %}
+                        <div class="text-end small">
+                            <div><i class="fa-solid fa-user me-1"></i>{{ request.state.current_user.full_name or request.state.current_user.email }}</div>
+                            <div class="text-muted">{{ request.state.current_user.role }}</div>
+                        </div>
+                        <form method="post" action="/logout">
+                            <button class="btn btn-sm btn-outline-secondary">Salir</button>
+                        </form>
+                        {% else %}
+                        <a class="btn btn-sm btn-outline-primary" href="/login">Iniciar sesión</a>
+                        {% endif %}
+                        <small class="text-muted d-none d-md-inline">
                             <i class="fas fa-clock me-1"></i>
                             <span id="current-time"></span>
                         </small>
@@ -97,3 +112,4 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
+

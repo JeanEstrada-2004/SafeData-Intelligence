@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if item else 'Nuevo' }} usuario{% endblock %}
+{% block header %}{{ 'Editar' if item else 'Nuevo' }} usuario{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card p-4 shadow-sm">
+      {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+      <form method="post" action="{{ '/admin/users/'+item.id|string if item else '/admin/users' }}">
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <input class="form-control" type="email" name="email" value="{{ item.email if item else '' }}" {% if item %}readonly{% endif %} required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-control" type="text" name="full_name" value="{{ item.full_name if item else '' }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Rol</label>
+          <select class="form-select" name="role" {% if item %}data-selected="{{ item.role }}"{% endif %}>
+            {% for r in ['Gerente','Jefe','Analista','EncargadoSipCop'] %}
+            <option value="{{r}}" {% if item and item.role==r %}selected{% endif %}>{{r}}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if item %}
+        <div class="mb-3 form-check">
+          <input class="form-check-input" type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %} />
+          <label class="form-check-label">Activo</label>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nueva contraseña (opcional)</label>
+          <input class="form-control" type="password" name="new_password" />
+        </div>
+        {% else %}
+        <div class="mb-3">
+          <label class="form-label">Contraseña</label>
+          <input class="form-control" type="password" name="password" required />
+        </div>
+        {% endif %}
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" type="submit">Guardar</button>
+          <a class="btn btn-outline-secondary" href="/admin/users">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

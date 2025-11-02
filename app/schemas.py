@@ -84,3 +84,49 @@ class ZoneFeature(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# -------------------
+# Auth module schemas
+# -------------------
+
+class UserBase(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    is_active: bool = True
+
+
+class UserCreate(BaseModel):
+    email: str
+    full_name: Optional[str] = None
+    role: str
+    password: str
+
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
+    password: Optional[str] = None
+
+
+class UserOut(UserBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class TokenData(BaseModel):
+    email: str
+    exp: int
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str

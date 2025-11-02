@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión{% endblock %}
+{% block header %}Iniciar sesión{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/css/login.css" />
+<div class="login-wrapper">
+  <div class="card p-4 shadow-sm" style="max-width: 380px; width: 100%;">
+    <h5 class="mb-3">Acceso</h5>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="post" action="/login">
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        <input class="form-control" type="email" name="email" required />
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Contraseña</label>
+        <input class="form-control" type="password" name="password" required autocomplete="current-password" maxlength="72" />
+      </div>
+      <div class="d-grid gap-2">
+        <button class="btn btn-primary" type="submit">Ingresar</button>
+        <a class="btn btn-link" href="/forgot-password">¿Olvidaste tu contraseña?</a>
+      </div>
+    </form>
+  </div>
+  <div class="login-hint text-muted">Usuario demo: admin@demo.local / Admin123!</div>
+  
+</div>
+{% endblock %}

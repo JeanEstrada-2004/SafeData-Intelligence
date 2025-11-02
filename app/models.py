@@ -18,6 +18,8 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, ForeignKey
+from datetime import datetime, timedelta
 
 from .database import Base
 
@@ -93,3 +95,42 @@ class Zona(Base):
     centroid_lat = Column(Float, nullable=False)
     centroid_lon = Column(Float, nullable=False)
 
+
+# -------------------
+# Auth module models
+# -------------------
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    full_name = Column(String(160), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(40), nullable=False)  # Gerente|Jefe|Analista|EncargadoSipCop
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP, nullable=True)
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    token = Column(String(120), unique=True, nullable=False, index=True)
+    expires_at = Column(TIMESTAMP, nullable=False)
+    used_at = Column(TIMESTAMP, nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+
+
+class AuditAccess(Base):
+    __tablename__ = "audit_access"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String(40), nullable=False)  # login_success, login_fail, view, logout, reset_request, reset_ok
+    path = Column(String(300), nullable=False)
+    ip = Column(String(64), nullable=True)
+    user_agent = Column(String(300), nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)

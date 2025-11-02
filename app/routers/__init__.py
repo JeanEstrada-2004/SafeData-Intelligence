@@ -1,18 +1,6 @@
-# app/__init__.py
-"""
-Sistema de Gestión de Denuncias Ciudadanas
-Aplicación web desarrollada con FastAPI para la gestión de denuncias policiales.
-"""
-
-__version__ = "1.0.0"
-__author__ = "Sistema de Denuncias"
-__description__ = "Plataforma web para gestión de denuncias ciudadanas"
-
-# app/routers/__init__.py
-"""
-Módulo de rutas para la API del sistema de denuncias.
-"""
+"""Inicialización de routers del proyecto."""
 
 from .denuncias import router as denuncias_router
+from .mapa_calor import router as mapa_calor_router
 
-__all__ = ["denuncias_router"]
+__all__ = ["denuncias_router", "mapa_calor_router"]

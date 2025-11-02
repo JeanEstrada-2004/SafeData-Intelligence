@@ -9,11 +9,11 @@ load_dotenv()
 # 1) Si hay DATABASE_URL completa en el entorno, úsala tal cual.
 DATABASE_URL_ENV = os.getenv("DATABASE_URL", "").strip()
 
-DB_HOST = os.getenv("DB_HOST", "localhost").strip()
+DB_HOST = os.getenv("DB_HOST", "dpg-d42p5np5pdvs73da3i2g-a.oregon-postgres.render.com").strip()
 DB_PORT = os.getenv("DB_PORT", "5432").strip()
 DB_NAME = os.getenv("DB_NAME", "denuncias_db").strip()
-DB_USER = os.getenv("DB_USER", "postgres").strip()
-DB_PASS = os.getenv("DB_PASS", "").strip()
+DB_USER = os.getenv("DB_USER", "denuncias_db_user").strip()
+DB_PASS = os.getenv("DB_PASS", "U25F3n8UmYoghcKe6cR7La3AEh55OaZf").strip()
 
 def _is_local(host: str) -> bool:
     h = (host or "").lower()
@@ -65,3 +65,4 @@ def quick_db_check():
             # La tabla puede no existir aún: lo reportamos como warning en la versión
             version = f"{version} (warn: {e})"
         return {"version": version, "denuncias": 0 if total is None else int(total)}
+

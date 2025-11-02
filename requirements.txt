@@ -7,3 +7,4 @@ jinja2==3.1.2             # Motor de plantillas HTML, útil si tu FastAPI genera
 pandas==2.1.3             # Librería para análisis y manipulación de datos (muy usada para procesar datasets).
 openpyxl==3.1.2           # Permite leer y escribir archivos Excel (.xlsx), ideal si importas/exportas datos.
 python-dotenv==1.0.0      # Carga variables de entorno desde un archivo .env (para configurar credenciales o rutas).
+requests==2.31.0        # Cliente HTTP para consumir el servicio de geocodificación Nominatim.

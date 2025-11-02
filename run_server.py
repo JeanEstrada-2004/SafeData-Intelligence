@@ -28,8 +28,9 @@ def check_database():
     """Verificar conexión a la base de datos"""
     try:
         from app.database import engine
+        from sqlalchemy import text
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         print("✅ Conexión a base de datos exitosa")
         return True
     except Exception as e:

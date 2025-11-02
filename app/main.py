@@ -11,6 +11,7 @@ from .routers import denuncias as denuncias_router
 from .routers import mapa_calor as mapa_calor_router
 from .routers import autenticacion as auth_router
 from .routers import admin_usuarios as admin_users_router
+from .routers import prediccion_ia as prediccion_router
 from .utils.seguridad import try_get_current_user
 
 # Crea tablas (no borra nada; si estÃ¡n creadas, no hace cambios)
@@ -26,6 +27,7 @@ templates = Jinja2Templates(directory="templates")
 # API routers
 app.include_router(denuncias_router.router, prefix="/api/denuncias", tags=["denuncias"])
 app.include_router(mapa_calor_router.router, prefix="/api/map", tags=["mapa-calor"])
+app.include_router(prediccion_router.router, prefix="/api/prediccion", tags=["prediccion-ia"])
 app.include_router(auth_router.router)
 app.include_router(admin_users_router.router)
 
@@ -144,7 +146,7 @@ def listado_denuncias(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/prediccion-ia", response_class=HTMLResponse)
 def prediccion_ia_page(request: Request):
-    zonas_disponibles = [f"Zona {i}" for i in range(1, 8)]
+    zonas_disponibles = list(range(1, 8))  # Zonas del 1 al 7
     return templates.TemplateResponse("prediccion-ia.html", {"request": request, "zonas": zonas_disponibles})
 
 

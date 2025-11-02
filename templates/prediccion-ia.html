@@ -1,119 +1,333 @@
-{% extends "base.html" %}
-
-{% block title %}Predicción IA{% endblock %}
-{% block header %}Predicción IA{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Predicción IA{% endblock %} {% block
+header %}Predicción IA{% endblock %} {% block content %}
 
 <div class="row">
-    <div class="col-12 col-lg-4">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light">
-                <i class="fa-solid fa-wand-magic-sparkles me-2"></i>
-                Parámetros de Análisis
-            </div>
-            <div class="card-body">
-                <form id="form-prediccion">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Zona</label>
-                        <select class="form-select" name="zona">
-                            {% for z in zonas %}
-                            <option value="{{ z }}">{{ z }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+  <div class="col-12 col-lg-4">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light">
+        <i class="fa-solid fa-wand-magic-sparkles me-2"></i>
+        Parámetros de Análisis
+      </div>
+      <div class="card-body">
+        <form id="form-prediccion">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Zona</label>
+            <select class="form-select" name="zona" required>
+              {% for z in zonas %}
+              <option value="{{ z }}" {% if loop.first %}selected{% endif %}>
+                Zona {{ z }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Turno</label>
-                        <select class="form-select" name="turno">
-                            <option value="mañana">Mañana</option>
-                            <option value="tarde">Tarde</option>
-                            <option value="noche">Noche</option>
-                        </select>
-                    </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Turno</label>
+            <select class="form-select" name="turno" required>
+              <option value="mañana" selected>Mañana</option>
+              <option value="tarde">Tarde</option>
+              <option value="noche">Noche</option>
+            </select>
+          </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Tipo de Incidente</label>
-                        <input class="form-control" name="tipo" placeholder="Robo de celular, Violencia, etc.">
-                    </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold"
+              >Tipo de Incidente (opcional)</label
+            >
+            <select class="form-select" name="tipo">
+              <option value="">Todos los tipos</option>
+              <option value="Robo">Robo</option>
+              <option value="Robo de celular">Robo de celular</option>
+              <option value="Robo a transeúnte">Robo a transeúnte</option>
+              <option value="Robo de vehículo">Robo de vehículo</option>
+              <option value="Asalto">Asalto</option>
+              <option value="Violencia">Violencia</option>
+              <option value="Violencia familiar">Violencia familiar</option>
+              <option value="Lesiones">Lesiones</option>
+              <option value="Homicidio">Homicidio</option>
+              <option value="Secuestro">Secuestro</option>
+              <option value="Extorsión">Extorsión</option>
+              <option value="Fraude">Fraude</option>
+              <option value="Vandalismo">Vandalismo</option>
+              <option value="Narcotráfico">Narcotráfico</option>
+              <option value="Otros">Otros</option>
+            </select>
+          </div>
 
-                    <button type="button" id="btn-predecir" class="btn btn-primary w-100">
-                        <i class="fa-solid fa-brain me-2"></i>Predecir Riesgo
-                    </button>
-                </form>
-            </div>
+          <button type="button" id="btn-predecir" class="btn btn-primary w-100">
+            <i class="fa-solid fa-brain me-2"></i>Predecir Riesgo
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-8">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-light">
+        <i class="fa-solid fa-chart-line me-2"></i>
+        Resultado de Predicción
+      </div>
+      <div class="card-body" id="resultado-prediccion">
+        <div class="text-muted text-center py-5">
+          <i class="fa-solid fa-magnifying-glass-chart fa-2x mb-3"></i>
+          <p class="mb-0">
+            Selecciona los parámetros y haz clic en "Predecir Riesgo".
+          </p>
         </div>
+      </div>
     </div>
 
-    <div class="col-12 col-lg-8">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light">
-                <i class="fa-solid fa-chart-line me-2"></i>
-                Resultado de Predicción
-            </div>
-            <div class="card-body" id="resultado-prediccion">
-                <div class="text-muted text-center py-5">
-                    <i class="fa-solid fa-magnifying-glass-chart fa-2x mb-3"></i>
-                    <p class="mb-0">
-                        Selecciona los parámetros y haz clic en "Predecir Riesgo".
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <i class="fa-solid fa-circle-info me-2"></i>
-                ¿Qué es esto?
-            </div>
-            <div class="card-body small text-muted">
-                <p class="mb-2">
-                    Este módulo estimará el <strong>nivel de riesgo</strong> en una zona y turno específicos,
-                    usando el histórico de denuncias cargadas en el sistema.
-                </p>
-                <ul class="mb-0">
-                    <li>Nivel Alto → requiere patrullaje inmediato.</li>
-                    <li>Nivel Medio → patrullaje preventivo.</li>
-                    <li>Nivel Bajo → monitoreo estándar.</li>
-                </ul>
-            </div>
-        </div>
+    <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <i class="fa-solid fa-circle-info me-2"></i>
+        ¿Qué es esto?
+      </div>
+      <div class="card-body small text-muted">
+        <p class="mb-2">
+          Este módulo estimará el <strong>nivel de riesgo</strong> en una zona y
+          turno específicos, usando el histórico de denuncias cargadas en el
+          sistema.
+        </p>
+        <ul class="mb-0">
+          <li>Nivel Alto → requiere patrullaje inmediato.</li>
+          <li>Nivel Medio → patrullaje preventivo.</li>
+          <li>Nivel Bajo → monitoreo estándar.</li>
+        </ul>
+      </div>
     </div>
+  </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script>
-// ⚠ Por ahora esto es mock. Cuando creemos el endpoint /denuncias/prediccion,
-// este JS hará fetch al backend y pintará el resultado dinámicamente.
+  document
+    .getElementById("btn-predecir")
+    .addEventListener("click", async () => {
+      const form = document.getElementById("form-prediccion");
+      const zonaValue = form.zona.value;
+      const zona = parseInt(zonaValue);
+      const turno = form.turno.value;
+      const tipo = form.tipo.value;
 
-document.getElementById("btn-predecir").addEventListener("click", async () => {
-    const form = document.getElementById("form-prediccion");
-    const zona = form.zona.value;
-    const turno = form.turno.value;
-    const tipo = form.tipo.value;
+      // Debug: mostrar valores en consola
+      console.log("Valores del formulario:", {
+        zonaValue,
+        zona,
+        turno,
+        tipo,
+        isNaN: isNaN(zona),
+      });
 
-    // simulación temporal del backend
-    const riesgoMock = "ALTO";
-    const probMock = "0.78";
+      // Validar que zona sea un número válido
+      if (!zonaValue || isNaN(zona) || !turno) {
+        console.error("Validación fallida:", { zonaValue, zona, turno });
+        alert(
+          `Por favor, verifica los valores:\n- Zona: ${
+            zonaValue || "No seleccionada"
+          }\n- Turno: ${turno || "No seleccionado"}`
+        );
+        return;
+      }
 
-    const cont = document.getElementById("resultado-prediccion");
-    cont.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <div class="alert alert-danger">
-                    <strong>Riesgo ${riesgoMock}</strong><br>
-                    Probabilidad estimada: ${probMock}
-                </div>
+      // Mostrar loading
+      const resultadoDiv = document.getElementById("resultado-prediccion");
+      resultadoDiv.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Analizando...</span>
             </div>
-            <div class="col-md-6 small text-muted">
-                <p class="mb-1"><strong>Zona:</strong> ${zona}</p>
-                <p class="mb-1"><strong>Turno:</strong> ${turno}</p>
-                <p class="mb-0"><strong>Tipo incidente:</strong> ${tipo || "(cualquiera)"}</p>
-            </div>
+            <p class="mt-3 text-muted">Analizando datos históricos...</p>
         </div>
     `;
-});
+
+      try {
+        // Llamar al API
+        const response = await fetch("/api/prediccion/prediccion", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            zona: zona,
+            turno: turno,
+            tipo_denuncia: tipo || "",
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error("Error del servidor:", errorData);
+          throw new Error("Error en la predicción");
+        }
+
+        const data = await response.json();
+
+        // **CASO ESPECIAL: SIN DATOS**
+        if (data.nivel_riesgo === "SIN_DATOS") {
+          resultadoDiv.innerHTML = `
+            <div class="text-center py-5">
+              <i class="fa-solid fa-database fa-3x text-muted mb-4"></i>
+              <h4 class="text-muted mb-3">Sin Datos Históricos</h4>
+              <div class="alert alert-info mx-auto" style="max-width: 500px;">
+                <i class="fa-solid fa-circle-info me-2"></i>
+                ${data.mensaje}
+              </div>
+              <p class="text-muted small mb-4">
+                No se encontraron denuncias registradas para:<br>
+                <strong>Zona ${data.zona}</strong> - <strong>${
+            data.turno.charAt(0).toUpperCase() + data.turno.slice(1)
+          }</strong>
+              </p>
+              ${
+                data.recomendaciones && data.recomendaciones.length > 0
+                  ? `
+                <div class="mt-4">
+                  ${data.recomendaciones
+                    .map(
+                      (rec) => `
+                    <div class="alert alert-info mb-2" role="alert">
+                      ${rec.texto}
+                    </div>
+                  `
+                    )
+                    .join("")}
+                </div>
+              `
+                  : ""
+              }
+              <div class="mt-4">
+                <small class="text-muted">
+                  💡 Intenta con otra zona o turno, o carga más denuncias en el sistema.
+                </small>
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        // Determinar color según nivel de riesgo
+        let colorClase, iconoRiesgo;
+        if (data.nivel_riesgo === "ALTO") {
+          colorClase = "danger";
+          iconoRiesgo = "fa-triangle-exclamation";
+        } else if (data.nivel_riesgo === "MEDIO") {
+          colorClase = "warning";
+          iconoRiesgo = "fa-circle-exclamation";
+        } else {
+          colorClase = "success";
+          iconoRiesgo = "fa-circle-check";
+        }
+
+        // Construir HTML de tipos comunes
+        let tiposHTML = "";
+        if (data.tipos_comunes && data.tipos_comunes.length > 0) {
+          tiposHTML = `
+                <div class="mt-4">
+                    <h6 class="fw-semibold mb-3">
+                        <i class="fa-solid fa-list-check me-2"></i>Delitos más frecuentes:
+                    </h6>
+                    <ul class="list-group list-group-flush">
+            `;
+          data.tipos_comunes.forEach((t) => {
+            tiposHTML += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <span>${t.tipo || "No especificado"}</span>
+                        <span class="badge bg-secondary">${t.cantidad}</span>
+                    </li>
+                `;
+          });
+          tiposHTML += `</ul></div>`;
+        }
+
+        // Construir HTML de recomendaciones
+        let recomendacionesHTML = "";
+        if (data.recomendaciones && data.recomendaciones.length > 0) {
+          recomendacionesHTML = `
+                <div class="mt-4">
+                    <h6 class="fw-semibold mb-3">
+                        <i class="fa-solid fa-lightbulb me-2"></i>Recomendaciones:
+                    </h6>
+                    <div class="list-group">
+            `;
+          data.recomendaciones.forEach((rec) => {
+            let alertClass = "info";
+            if (rec.tipo === "urgente") alertClass = "danger";
+            else if (rec.tipo === "preventivo") alertClass = "warning";
+            else if (rec.tipo === "accion") alertClass = "primary";
+
+            recomendacionesHTML += `
+                    <div class="alert alert-${alertClass} mb-2" role="alert">
+                        ${rec.texto}
+                    </div>
+                `;
+          });
+          recomendacionesHTML += `</div></div>`;
+        }
+
+        // Mostrar resultado
+        resultadoDiv.innerHTML = `
+            <div class="text-center mb-4">
+                <i class="fa-solid ${iconoRiesgo} fa-3x text-${colorClase} mb-3"></i>
+                <h3 class="mb-2">Nivel de Riesgo: <span class="text-${colorClase}">${
+          data.nivel_riesgo
+        }</span></h3>
+                <div class="progress" style="height: 30px;">
+                    <div class="progress-bar bg-${colorClase}" role="progressbar" 
+                         style="width: ${data.probabilidad * 100}%"
+                         aria-valuenow="${
+                           data.probabilidad * 100
+                         }" aria-valuemin="0" aria-valuemax="100">
+                        ${(data.probabilidad * 100).toFixed(1)}% probabilidad
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row text-center mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">${
+                              data.incidentes_historicos
+                            }</h5>
+                            <p class="card-text small text-muted">Incidentes históricos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">${data.densidad_diaria.toFixed(
+                              2
+                            )}</h5>
+                            <p class="card-text small text-muted">Incidentes por día</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">${
+                              data.denuncias_este_dia
+                            }</h5>
+                            <p class="card-text small text-muted">En este día de semana</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            ${recomendacionesHTML}
+            ${tiposHTML}
+        `;
+      } catch (error) {
+        console.error("Error:", error);
+        resultadoDiv.innerHTML = `
+            <div class="alert alert-danger" role="alert">
+                <i class="fa-solid fa-circle-exclamation me-2"></i>
+                Error al realizar la predicción. Por favor, intenta nuevamente.
+            </div>
+        `;
+      }
+    });
 </script>
 {% endblock %}

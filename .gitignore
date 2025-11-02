@@ -9,3 +9,5 @@ venv/
 *.xlsx
 *.db
 Thumbs.db
+venv/ 
+.venv/ 

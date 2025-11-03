@@ -8,16 +8,14 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security.utils import get_authorization_scheme_param
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import AuditAccess, User
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "changeme-super-secret")
 ACCESS_TOKEN_EXPIRES_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRES_MIN", "60"))
@@ -27,21 +25,29 @@ ACCESS_TOKEN_EXPIRES_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRES_MIN", "60"))
 # Password helpers
 # ---------------------------
 def hash_password(password: str) -> str:
-    # bcrypt solo admite 72 bytes; truncamos por bytes para mantener
-    # consistencia con verify_password y evitar errores del backend
-    pw_bytes = password.encode("utf-8")
-    if len(pw_bytes) > 72:
-        password = pw_bytes[:72].decode("utf-8", "ignore")
-    return pwd_context.hash(password)
-
-
-def verify_password(password: str, hashed: str) -> bool:
-    # bcrypt solo admite 72 bytes
+    """Hash a password using bcrypt."""
+    # bcrypt solo admite 72 bytes; truncamos si es necesario
     pw_bytes = password.encode("utf-8")
     if len(pw_bytes) > 72:
         pw_bytes = pw_bytes[:72]
-        password = pw_bytes.decode("utf-8", "ignore")
-    return pwd_context.verify(password, hashed)
+    
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pw_bytes, salt)
+    return hashed.decode("utf-8")
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify a password against a bcrypt hash."""
+    try:
+        # bcrypt solo admite 72 bytes
+        pw_bytes = password.encode("utf-8")
+        if len(pw_bytes) > 72:
+            pw_bytes = pw_bytes[:72]
+        
+        hashed_bytes = hashed.encode("utf-8")
+        return bcrypt.checkpw(pw_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 
 

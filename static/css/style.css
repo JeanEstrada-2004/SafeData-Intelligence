@@ -266,6 +266,10 @@ main {
     
 .bg-primary {
     --bs-bg-opacity: 1;
-    background: #0d1dfd;
-    background: linear-gradient(172deg, rgb(249 58 58) 0%, #150df0 100%);
+    background: #0b9472;
+    background: linear-gradient(172deg, #0b9472 0%, #004042 100%);
 }
+
+
+main {padding: 40px !important;}
+.text-orange { color: #fbbf24 !important; } /* tono atardecer */

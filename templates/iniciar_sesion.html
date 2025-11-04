@@ -1,13 +1,25 @@
 ﻿{% extends "base.html" %}
 {% block title %}Iniciar Sesión{% endblock %}
-{% block header %}Iniciar Sesión{% endblock %}
+{% block header %}SafeData Intelligence{% endblock %}
 {% block content %}
 
 
 <style>
-  body {background: linear-gradient(172deg, #0b9472 0%, #004042 100%);}
+  body {background: linear-gradient(172deg, #0b9472 0%, #004042 100%); 
+    background-image: url(../static/img/bg-login.jpg);
+    background-size: cover;
+    background-position: center center;}
+  
+  .h2 {color: #fff !important;}
+
   .text-muted {color: #fff !important}
   main {padding: 0px 20px !important;}
+  .btn {border: 1px solid #00dd77; color: #00dd77}
+  .btn:hover {background: #00dd77; color: #014344 !important; border: 1px solid #00dd77}
+  .btn-primary {background-color: #00dd77; border: 1px solid #00dd77; color: #014344}
+  .btn-primary:hover {background-color: #014344; border: 1px solid; color: #fff !important;}
+
+
 </style>
 
 <link rel="stylesheet" href="/static/css/iniciar_sesion.css" />

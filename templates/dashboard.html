@@ -4,8 +4,22 @@
 
 {% block content %}
 
+<style>
+  .card-bg-top {background: #014344; color: #fff !important}
+  .card-bg-top .text-primary {color: #00dd77 !important}
+  .card-bg-top .badge {padding: 10px 15px;}
+  .card-bg-top .btn {border: 1px solid #00dd77; color: #00dd77}
+  .card-bg-top .btn:hover {background: #00dd77; color: #014344 !important}
+
+  .dashboard-p {
+      font-size: 13px;
+      color: rgb(114 114 114 / 75%) !important; }
+</style>
+
+
+
 <!-- Filtros rápidos (placeholder visual, luego podemos cablear query params) -->
-<div class="card shadow mb-3">
+<div class="card shadow mb-3 card-bg-top">
   <div class="card-body d-flex flex-wrap gap-2 align-items-center">
     <div class="me-2"><i class="far fa-calendar me-2 text-primary"></i><strong>Rango:</strong> Últimos 12 meses</div>
     <div class="badge rounded-pill bg-light text-dark border"><i class="fas fa-map-marker-alt me-1 text-info"></i>Zonas: Todas</div>
@@ -22,7 +36,8 @@
     <div class="card shadow h-100 kpi kpi-primary">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div>
-          <div class="text-uppercase small text-muted">Total de Denuncias</div>
+          <div class="text-uppercase small text-muted widget-title">Total de Denuncias</div>
+          <p class="text-muted small mb-0 dashboard-p">Cantidad total de denuncias registradas en el sistema.</p>
           <div class="display-6 fw-bold" id="kpiTotal">—</div>
         </div>
         <i class="fas fa-file-alt fa-2x text-primary"></i>
@@ -33,7 +48,8 @@
     <div class="card shadow h-100 kpi kpi-success">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div>
-          <div class="text-uppercase small text-muted">SLA ≤ 20 min</div>
+          <div class="text-uppercase small text-muted widget-title">SLA ≤ 20 min</div>
+          <p class="text-muted small mb-0 dashboard-p">Porcentaje de casos atendidos en menos de 20 minutos.</p>
           <div class="display-6 fw-bold"><span id="kpiSLA">—</span><small class="text-muted fs-6">%</small></div>
         </div>
         <i class="fas fa-bolt fa-2x text-success"></i>
@@ -44,7 +60,8 @@
     <div class="card shadow h-100 kpi kpi-warning">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div>
-          <div class="text-uppercase small text-muted">Reacción Mediana</div>
+          <div class="text-uppercase small text-muted widget-title">Reacción Mediana</div>
+          <p class="text-muted small mb-0 dashboard-p">Tiempo promedio que tarda la patrulla en llegar al lugar.</p>
           <div class="display-6 fw-bold"><span id="kpiP50">—</span><small class="text-muted fs-6">min</small></div>
         </div>
         <i class="fas fa-stopwatch fa-2x text-warning"></i>
@@ -55,7 +72,8 @@
     <div class="card shadow h-100 kpi kpi-danger">
       <div class="card-body d-flex justify-content-between align-items-center">
         <div>
-          <div class="text-uppercase small text-muted">Reacción p90</div>
+          <div class="text-uppercase small text-muted widget-title">Reacción p90</div>
+          <p class="text-muted small mb-0 dashboard-p">Tiempo máximo de llegada en el 90 % de los casos atendidos.</p>
           <div class="display-6 fw-bold"><span id="kpiP90">—</span><small class="text-muted fs-6">min</small></div>
         </div>
         <i class="fas fa-tachometer-alt fa-2x text-danger"></i>
@@ -66,7 +84,7 @@
 
 <!-- Estados + Turnos -->
 <div class="row g-3 mt-1">
-  <div class="col-xl-6">
+  <div class="col-xl-4">
     <div class="card shadow h-100">
       <div class="card-header py-3">
         <h6 class="m-0 fw-bold text-primary">Distribución por Estado</h6>
@@ -78,13 +96,15 @@
     <div class="card shadow h-100">
       <div class="card-header py-3">
         <h6 class="m-0 fw-bold text-primary">Denuncias por Turno</h6>
-        <p class="text-muted small mb-0">Distribución de denuncias según el momento del día en que ocurrieron los hechos reportados.</p>
+        
       </div>
       <div class="card-body">
         <div class="row text-center g-3">
+          <p class="text-muted small mb-0">Distribución de denuncias según el momento del día en que ocurrieron los hechos reportados.</p>
           <div class="col-4">
             <div class="p-3 rounded-3 bg-light shadow-sm h-100">
-              <i class="fas fa-sunrise fa-2x text-warning mb-2"></i>
+              <img src="../static/img/c-dia.png" alt="MDN" />
+              <!--<i class="fas fa-sunrise fa-2x text-warning mb-2"></i>-->
               <div class="fs-2 fw-bold text-dark" id="turnoManana">—</div>
               <div class="small text-muted">denuncias</div>
               <div class="fw-semibold text-warning">Mañana</div>
@@ -92,7 +112,8 @@
           </div>
           <div class="col-4">
             <div class="p-3 rounded-3 bg-light shadow-sm h-100">
-              <i class="fas fa-sun fa-2x text-orange mb-2"></i>
+              <!--<i class="fas fa-sun fa-2x text-orange mb-2"></i>-->
+              <img src="../static/img/c-tarde.png" alt="MDN" />
               <div class="fs-2 fw-bold text-dark" id="turnoTarde">—</div>
               <div class="small text-muted">denuncias</div>
               <div class="fw-semibold text-orange">Tarde</div>
@@ -100,7 +121,8 @@
           </div>
           <div class="col-4">
             <div class="p-3 rounded-3 bg-light shadow-sm h-100">
-              <i class="fas fa-moon fa-2x text-primary mb-2"></i>
+              <!--<i class="fas fa-moon fa-2x text-primary mb-2"></i>-->
+              <img src="../static/img/c-noche.png" alt="MDN" />
               <div class="fs-2 fw-bold text-dark" id="turnoNoche">—</div>
               <div class="small text-muted">denuncias</div>
               <div class="fw-semibold text-primary">Noche</div>
@@ -189,7 +211,7 @@
 
 <!-- Tipos de denuncia -->
 <div class="row g-3 mt-1">
-  <div class="col-12">
+  <div class="col-6">
     <div class="card shadow">
       <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Tipos de Denuncia (Top)</h6></div>
       <div class="card-body">
@@ -204,7 +226,7 @@
       </div>
     </div>
   </div>
-</div>
+</div> <br><br>
 
 {% endblock %}
 

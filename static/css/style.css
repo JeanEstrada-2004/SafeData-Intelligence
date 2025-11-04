@@ -271,5 +271,8 @@ main {
 }
 
 
-main {padding: 40px !important;}
+.widget-title {color: #09896c !important; font-size: 20px;
+    font-weight: 600;}
+
+
 .text-orange { color: #fbbf24 !important; } /* tono atardecer */

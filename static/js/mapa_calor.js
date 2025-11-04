@@ -1,7 +1,4 @@
-(function () {
-  // Mapa de Calor – versión estable previa (sin overlay de carga)
-  // Carga filtros, renderiza heatmap y clusters, y persiste filtros.
-
+﻿(function () {
   const API_BASE = "/api/map";
   const STORAGE_KEY = "safedata.mapaCalor.filters";
   const MAP_CENTER = [-16.408978, -71.531532];
@@ -84,8 +81,10 @@
     populateSelect("turno", payload.turnos);
     populateSelect("zona", payload.zonas.map((z) => ({ value: z, label: `Zona ${z}` })));
     const defaults = computeDefaultDates(payload.fecha);
-    document.getElementById("fecha-desde").value = defaults.desde;
-    document.getElementById("fecha-hasta").value = defaults.hasta;
+    const fd = document.getElementById("fecha-desde");
+    const fh = document.getElementById("fecha-hasta");
+    if (fd && !fd.value) fd.value = defaults.desde;
+    if (fh && !fh.value) fh.value = defaults.hasta;
   }
 
   async function loadZones() {
@@ -123,11 +122,13 @@
     updateIncidentCounter(points.length);
     updateZones(points);
   }
+
   function updateHeatLayer(points) {
     const data = points.map((p) => [p.lat, p.lon, p.peso || 1]);
     heatLayer.setLatLngs(data);
     if (!map.hasLayer(heatLayer)) { heatLayer.addTo(map); setActive("toggle-heat", true); }
   }
+
   function updateClusterLayer(points) {
     clusterLayer.clearLayers();
     points.forEach((p) => {
@@ -137,6 +138,7 @@
       clusterLayer.addLayer(m);
     });
   }
+
   function updateZones(points) {
     if (!zoneFeatures.length) return;
     const counts = computeZoneCounts(points);
@@ -146,7 +148,9 @@
       const n = counts.get(id) || 0;
       layer.bindTooltip(`${name} - Incidentes filtrados: ${n}`, { sticky: true });
     });
+    if (!map.hasLayer(zonesLayer)) zonesLayer.addTo(map);
   }
+
   function computeZoneCounts(points) {
     const counts = new Map();
     const polys = zoneFeatures.map((f) => ({ id: String(f.id_zona), geometries: normalizePolygons(getGeometry(f)) }));
@@ -156,6 +160,7 @@
     });
     return counts;
   }
+
   function getGeometry(f) { if (!f || !f.geojson) return null; if (f.geojson.type === "Feature") return f.geojson.geometry; if (f.geojson.geometry) return f.geojson.geometry; return f.geojson; }
   function normalizePolygons(geometry) {
     if (!geometry) return [];
@@ -200,6 +205,7 @@
 
   function populateSelect(elementId, values) {
     const select = document.getElementById(elementId);
+    if (!select) return;
     select.innerHTML = "";
     const options = Array.isArray(values) ? values.map((v) => (typeof v === "object" ? v : { value: v, label: v })) : [];
     options.forEach((opt) => { const o = document.createElement("option"); o.value = opt.value; o.textContent = opt.label; select.appendChild(o); });
@@ -216,12 +222,12 @@
   function formatDateTime(v) { if (!v) return "-"; const d = new Date(v); return `${formatDate(d)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 })();
 
-  function buildQueryString(filters) {
-    const params = new URLSearchParams();
-    if (filters.desde) params.set("desde", filters.desde);
-    if (filters.hasta) params.set("hasta", filters.hasta);
-    if (filters.tipos?.length) params.set("tipo", filters.tipos.join(","));
-    if (filters.turnos?.length) params.set("turno", filters.turnos.join(","));
-    if (filters.zonas?.length) params.set("zona", filters.zonas.join(","));
-    return params.toString();
-  }
+function buildQueryString(filters) {
+  const params = new URLSearchParams();
+  if (filters.desde) params.set("desde", filters.desde);
+  if (filters.hasta) params.set("hasta", filters.hasta);
+  if (filters.tipos?.length) params.set("tipo", filters.tipos.join(","));
+  if (filters.turnos?.length) params.set("turno", filters.turnos.join(","));
+  if (filters.zonas?.length) params.set("zona", filters.zonas.join(","));
+  return params.toString();
+}

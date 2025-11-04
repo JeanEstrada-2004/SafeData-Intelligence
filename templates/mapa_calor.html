@@ -1,9 +1,9 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Mapa de Calor - SafeData Intelligence{% endblock %}
 {% block header %}Mapa de Calor{% endblock %}
 
 {% block content %}
-{# Nota: agregamos ?v= para forzar actualización del navegador #}
+{# Nota: agregamos ?v= para forzar actualizaciÃ³n del navegador #}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="anonymous" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="anonymous" />
@@ -32,10 +32,10 @@
     <div class="mb-3">
       <label class="form-label" for="zona">Zonas</label>
       <select id="zona" class="form-select" multiple></select>
-    </div>
+    <div class="mb-3">
     <div class="d-grid gap-2">
       <button id="aplicar-filtros" class="btn btn-primary">Aplicar filtros</button>
-      <!-- Botón para limpiar filtros y restaurar defaults -->
+      <!-- BotÃ³n para limpiar filtros y restaurar defaults -->
       <button id="limpiar-filtros" class="btn btn-outline-warning">Limpiar filtros</button>
       <button id="descargar-csv" class="btn btn-outline-secondary">Descargar CSV</button>
     </div>
@@ -53,7 +53,7 @@
 
   <section class="map-wrapper">
     <div id="map"></div>
-    <!-- Elementos flotantes clásicos: leyenda (abajo-izquierda) y contador (arriba-derecha) -->
+    <!-- Elementos flotantes clÃ¡sicos: leyenda (abajo-izquierda) y contador (arriba-derecha) -->
     <div class="legend" id="map-legend">
       <h6>Intensidad</h6>
       <div class="gradient"></div>
@@ -75,3 +75,5 @@
 <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin="anonymous"></script>
 <script src="/static/js/mapa_calor.js?v=20251101-2"></script>
 {% endblock %}
+
+

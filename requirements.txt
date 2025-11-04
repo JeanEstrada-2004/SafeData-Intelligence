@@ -12,3 +12,4 @@ requests==2.31.0        # Cliente HTTP para consumir el servicio de geocodificac
 email-validator==2.1.0.post1  # Validación de email para formularios
 passlib[bcrypt]==1.7.4        # Hash/verify de contraseñas (bcrypt)
 PyJWT==2.8.0                  # JWT para cookie de sesión
+geopy==2.4.1    # Geocoding (Nominatim)

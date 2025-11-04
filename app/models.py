@@ -1,4 +1,4 @@
-"""SQLAlchemy models for SafeData Intelligence.
+﻿"""SQLAlchemy models for SafeData Intelligence.
 
 Map module notes (2025-11): this file was extended so the existing
 `denuncias` table supports georeferencing without creating a new table.
@@ -58,8 +58,9 @@ class Denuncia(Base):
     latitud = Column(Float, nullable=True)
     longitud = Column(Float, nullable=True)
     geocode_status = Column(String(20), nullable=False, server_default="pending")
-    geocode_precision = Column(String(20), nullable=True)
+    geocode_precision = Column(String(20), nullable=True)  # LÍNEA 61 CORREGIDA
     geocoded_at = Column(TIMESTAMP, nullable=True)
+    geo_method = Column(String(20), nullable=True)
     peso = Column(Numeric(3, 2), nullable=False, server_default="1.00")
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
 
@@ -134,3 +135,6 @@ class AuditAccess(Base):
     ip = Column(String(64), nullable=True)
     user_agent = Column(String(300), nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
+
+
+

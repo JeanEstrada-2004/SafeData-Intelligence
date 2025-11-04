@@ -1,4 +1,4 @@
-"""Simple SMTP mail sender for password reset emails."""
+﻿"""Simple SMTP mail sender for password reset emails."""
 from __future__ import annotations
 
 import os
@@ -15,14 +15,14 @@ MAIL_FROM = os.getenv("MAIL_FROM", SMTP_USER or "no-reply@safedata.local")
 
 def send_password_reset_email(to_email: str, reset_url: str) -> None:
     msg = EmailMessage()
-    msg["Subject"] = "Recuperación de contraseña – SafeData Intelligence"
+    msg["Subject"] = "Recuperación de contraseña — SafeData Intelligence"
     msg["From"] = MAIL_FROM
     msg["To"] = to_email
     html = f"""
     <html><body>
-      <p>Has solicitado restablecer tu contraseña.</p>
+      <p>Has solicitado restablecer tu contraseÃ±a.</p>
       <p>
-        Haz clic en el siguiente enlace (válido por 24 horas):<br/>
+        Haz clic en el siguiente enlace (vÃ¡lido por 24 horas):<br/>
         <a href="{reset_url}">{reset_url}</a>
       </p>
       <p>Si no solicitaste este cambio, ignora este correo.</p>

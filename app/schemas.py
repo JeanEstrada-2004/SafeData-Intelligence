@@ -1,4 +1,4 @@
-"""Esquemas Pydantic utilizados por la aplicación."""
+﻿"""Esquemas Pydantic utilizados por la aplicaciÃ³n."""
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -18,7 +18,7 @@ class DenunciaBase(BaseModel):
 
 
 class DenunciaCreate(DenunciaBase):
-    """Placeholder para futuras operaciones de creación."""
+    """Placeholder para futuras operaciones de creaciÃ³n."""
 
 
 class DenunciaResponse(DenunciaBase):
@@ -42,7 +42,7 @@ class DashboardStats(BaseModel):
 
 
 class MapDateRange(BaseModel):
-    """Rango mínimo y máximo de fechas disponibles."""
+    """Rango mÃ­nimo y mÃ¡ximo de fechas disponibles."""
 
     min: Optional[str] = None
     max: Optional[str] = None
@@ -55,7 +55,6 @@ class MapFilters(BaseModel):
     turnos: List[str]
     zonas: List[int]
     fecha: MapDateRange
-
 
 class MapPoint(BaseModel):
     """Representa un incidente proyectado en el mapa."""
@@ -130,3 +129,5 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
+
+

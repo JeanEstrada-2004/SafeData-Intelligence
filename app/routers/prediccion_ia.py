@@ -27,14 +27,19 @@ class PrediccionRequest(BaseModel):
 # Cargar modelo ML si existe
 MODEL_PATH = Path("models/prediccion_delitos.pkl")
 ml_model = None
+label_encoder = None
 if MODEL_PATH.exists():
     try:
         with open(MODEL_PATH, "rb") as f:
-            ml_model = pickle.load(f)
+            model_data = pickle.load(f)
+            # Extraer el modelo y el encoder del diccionario
+            ml_model = model_data['model']
+            label_encoder = model_data.get('label_encoder')
         print(f"✅ Modelo ML cargado desde {MODEL_PATH}")
     except Exception as e:
         print(f"⚠️ Error al cargar modelo ML: {e}")
         ml_model = None
+        label_encoder = None
 else:
     print(f"⚠️ Modelo ML no encontrado en {MODEL_PATH}. Usando sistema basado en reglas.")
 

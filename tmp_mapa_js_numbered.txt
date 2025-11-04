@@ -1,0 +1,225 @@
+   1: (function () {
+   2:   // Mapa de Calor â€“ versiÃ³n estable previa (sin overlay de carga)
+   3:   // Carga filtros, renderiza heatmap y clusters, y persiste filtros.
+   4: 
+   5:   const API_BASE = "/api/map";
+   6:   const STORAGE_KEY = "safedata.mapaCalor.filters";
+   7:   const MAP_CENTER = [-16.408978, -71.531532];
+   8:   const DEFAULT_ZOOM = 13;
+   9:   const HEAT_OPTIONS = { radius: 25, blur: 15, minOpacity: 0.3, maxZoom: 17 };
+  10: 
+  11:   let map;
+  12:   let heatLayer;
+  13:   let clusterLayer;
+  14:   let zonesLayer;
+  15:   let zoneFeatures = [];
+  16: 
+  17:   document.addEventListener("DOMContentLoaded", init);
+  18: 
+  19:   async function init() {
+  20:     if (typeof L === "undefined") {
+  21:       showSummary("No se pudo cargar Leaflet (CDN bloqueado).", true);
+  22:       try { await loadFilters(); } catch (_) {}
+  23:       return;
+  24:     }
+  25: 
+  26:     map = L.map("map", { zoomControl: true }).setView(MAP_CENTER, DEFAULT_ZOOM);
+  27:     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  28:       attribution: "Â© OpenStreetMap contributors",
+  29:       maxZoom: 19,
+  30:     }).addTo(map);
+  31: 
+  32:     heatLayer = L.heatLayer([], HEAT_OPTIONS).addTo(map);
+  33:     clusterLayer = L.markerClusterGroup();
+  34:     zonesLayer = L.geoJSON([], {
+  35:       style: () => ({ color: "#2ecc71", weight: 2, fillOpacity: 0.08 }),
+  36:       onEachFeature: (_feature, layer) => {
+  37:         layer.on({ mouseover: () => layer.setStyle({ weight: 3, fillOpacity: 0.2 }), mouseout: () => zonesLayer.resetStyle(layer) });
+  38:       },
+  39:     });
+  40: 
+  41:     attachListeners();
+  42: 
+  43:     try {
+  44:       await loadFilters();
+  45:       await loadZones();
+  46:       const restored = restoreFilters();
+  47:       await applyFilters(restored);
+  48:     } catch (error) {
+  49:       console.error("Error inicializando mapa", error);
+  50:       showSummary("No se pudieron cargar los datos del mapa.", true);
+  51:     }
+  52:   }
+  53: 
+  54:   function attachListeners() {
+  55:     document.getElementById("aplicar-filtros")?.addEventListener("click", async (event) => {
+  56:       event.preventDefault();
+  57:       const filters = collectFilters();
+  58:       saveFilters(filters);
+  59:       await applyFilters(filters);
+  60:     });
+  61: 
+  62:     document.getElementById("descargar-csv")?.addEventListener("click", (event) => {
+  63:       event.preventDefault();
+  64:       const filters = collectFilters();
+  65:       const query = buildQueryString(filters);
+  66:       window.open(`${API_BASE}/points.csv${query ? `?${query}` : ""}`, "_blank");
+  67:     });
+  68: 
+  69:     document.getElementById("limpiar-filtros")?.addEventListener("click", async (event) => {
+  70:       event.preventDefault();
+  71:       await clearFilters();
+  72:     });
+  73: 
+  74:     document.getElementById("toggle-heat")?.addEventListener("click", () => toggleLayer("heat"));
+  75:     document.getElementById("toggle-clusters")?.addEventListener("click", () => toggleLayer("clusters"));
+  76:     document.getElementById("toggle-zonas")?.addEventListener("click", () => toggleLayer("zones"));
+  77:   }
+  78: 
+  79:   async function loadFilters() {
+  80:     const response = await fetch(`${API_BASE}/filters`, { credentials: "include" });
+  81:     if (!response.ok) throw new Error("No se pudo obtener la configuraciÃ³n de filtros");
+  82:     const payload = await response.json();
+  83:     populateSelect("tipo-denuncia", payload.tipos);
+  84:     populateSelect("turno", payload.turnos);
+  85:     populateSelect("zona", payload.zonas.map((z) => ({ value: z, label: `Zona ${z}` })));
+  86:     populateSelect("zona", payload.zonas.map((z) => ({ value: z, label: `Zona ${z}` })));
+  87:     // Año (agregar opción "Todos")
+  88:     const yearOptions = [{ value: "", label: "Todos los años" }, ...years.map(y => ({ value: String(y), label: String(y) }))];
+  89:     const defaults = computeDefaultDates(payload.fecha);
+  90:     document.getElementById("fecha-desde").value = defaults.desde;
+  91:     document.getElementById("fecha-hasta").value = defaults.hasta;
+  92:   }
+  93: 
+  94:   async function loadZones() {
+  95:     const response = await fetch(`${API_BASE}/zones`, { credentials: "include" });
+  96:     if (!response.ok) throw new Error("No se pudieron obtener las zonas");
+  97:     zoneFeatures = await response.json();
+  98:     zonesLayer.clearLayers();
+  99:     const enriched = zoneFeatures.map((f) => {
+ 100:       const g = f.geojson;
+ 101:       if (g.type === "Feature") {
+ 102:         g.properties = { ...(g.properties || {}), id_zona: f.id_zona, nombre: f.nombre };
+ 103:         return g;
+ 104:       }
+ 105:       return { type: "Feature", properties: { id_zona: f.id_zona, nombre: f.nombre }, geometry: g.geometry || g };
+ 106:     });
+ 107:     zonesLayer.addData(enriched);
+ 108:   }
+ 109: 
+ 110:   async function applyFilters(filters) {
+ 111:     showSummary("Cargando datos...", false);
+ 112:     const query = buildQueryString(filters);
+ 113:     const response = await fetch(`${API_BASE}/points${query ? `?${query}` : ""}`, { credentials: "include" });
+ 114:     if (!response.ok) {
+ 115:       showSummary("No se pudieron obtener los incidentes.", true);
+ 116:       throw new Error("Fallo la carga de incidentes");
+ 117:     }
+ 118:     const points = await response.json();
+ 119:     updateMap(points);
+ 120:     updateSummary(filters, points.length);
+ 121:   }
+ 122: 
+ 123:   function updateMap(points) {
+ 124:     updateHeatLayer(points);
+ 125:     updateClusterLayer(points);
+ 126:     updateIncidentCounter(points.length);
+ 127:     updateZones(points);
+ 128:   }
+ 129:   function updateHeatLayer(points) {
+ 130:     const data = points.map((p) => [p.lat, p.lon, p.peso || 1]);
+ 131:     heatLayer.setLatLngs(data);
+ 132:     if (!map.hasLayer(heatLayer)) { heatLayer.addTo(map); setActive("toggle-heat", true); }
+ 133:   }
+ 134:   function updateClusterLayer(points) {
+ 135:     clusterLayer.clearLayers();
+ 136:     points.forEach((p) => {
+ 137:       const m = L.marker([p.lat, p.lon]);
+ 138:       const html = `<strong>${p.tipo || "Sin tipo"}</strong><br/>Turno: ${p.turno || "-"}<br/>Fecha: ${formatDateTime(p.fecha)}<br/>Zona: ${p.zona || "-"}<br/>Direccion: ${p.direccion || "Sin registro"}`;
+ 139:       m.bindPopup(html);
+ 140:       clusterLayer.addLayer(m);
+ 141:     });
+ 142:   }
+ 143:   function updateZones(points) {
+ 144:     if (!zoneFeatures.length) return;
+ 145:     const counts = computeZoneCounts(points);
+ 146:     zonesLayer.eachLayer((layer) => {
+ 147:       const id = String(layer.feature?.properties?.id_zona || "");
+ 148:       const name = layer.feature?.properties?.nombre || (id ? `Zona ${id}` : "Zona");
+ 149:       const n = counts.get(id) || 0;
+ 150:       layer.bindTooltip(`${name} - Incidentes filtrados: ${n}`, { sticky: true });
+ 151:     });
+ 152:   }
+ 153:   function computeZoneCounts(points) {
+ 154:     const counts = new Map();
+ 155:     const polys = zoneFeatures.map((f) => ({ id: String(f.id_zona), geometries: normalizePolygons(getGeometry(f)) }));
+ 156:     points.forEach((p) => {
+ 157:       const lonlat = [p.lon, p.lat];
+ 158:       polys.forEach((poly) => { if (poly.geometries.some((g) => pointInPolygon(lonlat, g))) counts.set(poly.id, (counts.get(poly.id) || 0) + 1); });
+ 159:     });
+ 160:     return counts;
+ 161:   }
+ 162:   function getGeometry(f) { if (!f || !f.geojson) return null; if (f.geojson.type === "Feature") return f.geojson.geometry; if (f.geojson.geometry) return f.geojson.geometry; return f.geojson; }
+ 163:   function normalizePolygons(geometry) {
+ 164:     if (!geometry) return [];
+ 165:     if (geometry.type === "Feature") return normalizePolygons(geometry.geometry);
+ 166:     if (geometry.type === "Polygon") return geometry.coordinates.map((ring) => ring.map(([lon, lat]) => [lon, lat]));
+ 167:     if (geometry.type === "MultiPolygon") return geometry.coordinates.map((poly) => (poly[0] || []).map(([lon, lat]) => [lon, lat]));
+ 168:     return [];
+ 169:   }
+ 170:   function pointInPolygon(point, polygon) {
+ 171:     let inside = false;
+ 172:     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+ 173:       const xi = polygon[i][0], yi = polygon[i][1];
+ 174:       const xj = polygon[j][0], yj = polygon[j][1];
+ 175:       const intersects = yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / ((yj - yi) || 1e-9) + xi;
+ 176:       if (intersects) inside = !inside;
+ 177:     }
+ 178:     return inside;
+ 179:   }
+ 180: 
+ 181:   function toggleLayer(layer) {
+ 182:     if (layer === "heat") { const active = map.hasLayer(heatLayer); active ? map.removeLayer(heatLayer) : heatLayer.addTo(map); setActive("toggle-heat", !active); }
+ 183:     if (layer === "clusters") { const active = map.hasLayer(clusterLayer); active ? map.removeLayer(clusterLayer) : clusterLayer.addTo(map); setActive("toggle-clusters", !active); }
+ 184:     if (layer === "zones") { const active = map.hasLayer(zonesLayer); active ? map.removeLayer(zonesLayer) : zonesLayer.addTo(map); setActive("toggle-zonas", !active); }
+ 185:   }
+ 186: 
+ 187:   function setActive(id, isActive) { const b = document.getElementById(id); if (b) b.classList.toggle("active", isActive); }
+ 188:   function updateIncidentCounter(count) { const el = document.getElementById("incident-count"); if (el) el.textContent = String(count); }
+ 189:   function updateSummary(filters, count) {
+ 190:     const parts = [];
+ 191:     if (filters.desde) parts.push(`Desde ${filters.desde}`);
+ 192:     if (filters.hasta) parts.push(`Hasta ${filters.hasta}`);
+ 193:     if (filters.tipos?.length) parts.push(`Tipos: ${filters.tipos.join(", ")}`);
+ 194:     if (filters.turnos?.length) parts.push(`Turnos: ${filters.turnos.join(", ")}`);
+ 195:     if (filters.zonas?.length) parts.push(`Zonas: ${filters.zonas.join(", ")}`);
+ 196:     const message = parts.length ? `${parts.join(" Â· ")} | Incidentes visibles: ${count}` : `Incidentes visibles: ${count}`;
+ 197:     showSummary(message, false);
+ 198:   }
+ 199:   function showSummary(message, isError) {
+ 200:     const alert = document.getElementById("filtros-resumen");
+ 201:     if (!alert) return; alert.textContent = message; alert.classList.toggle("alert-danger", !!isError); alert.classList.toggle("alert-info", !isError);
+ 202:   }
+ 203: 
+ 204:   function populateSelect(elementId, values) {
+ 205:     const select = document.getElementById(elementId);
+ 206:     select.innerHTML = "";
+ 207:     const options = Array.isArray(values) ? values.map((v) => (typeof v === "object" ? v : { value: v, label: v })) : [];
+ 208:     options.forEach((opt) => { const o = document.createElement("option"); o.value = opt.value; o.textContent = opt.label; select.appendChild(o); });
+ 209:   }
+ 210:   function computeDefaultDates(range) { const today = range?.max ? new Date(range.max) : new Date(); const minDate = range?.min ? new Date(range.min) : null; const from = new Date(today); from.setDate(from.getDate() - 30); if (minDate && from < minDate) from.setTime(minDate.getTime()); return { desde: formatDate(from), hasta: formatDate(today) }; }
+ 211:   function restoreFilters() {
+ 212:     const s = readFilters();
+ 213:     if (s.desde) document.getElementById('fecha-desde').value = s.desde;
+ 214:     if (s.hasta) document.getElementById('fecha-hasta').value = s.hasta;
+ 215:     setSelectValues('tipo-denuncia', s.tipos || []);
+ 216:     setSelectValues('turno', s.turnos || []);
+ 217:     setSelectValues('zona', s.zonas || []);
+ 218:     } else {
+ 219:       const y = new Date().getFullYear();
+ 220:     }
+ 221:     return collectFilters();
+ 222:   }
+ 223:   }
+ 224: 
+ 225: 

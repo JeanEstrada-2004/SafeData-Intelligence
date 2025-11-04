@@ -1,7 +1,7 @@
 ﻿"""Router del modulo Mapa de Calor.
 
 Notas (2025-11):
-- Protegido por roles (Gerente/Jefe/Analista) via require_roles.
+- Protegido por roles (Gerente/JefeOperaciones/Analista) via require_roles.
 - Usa la tabla existente `denuncias` (no requiere `incidentes`).
 - Endpoints: /filters, /points, /zones, /points.csv
 """
@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, extract
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -25,12 +25,13 @@ from ..models import Denuncia, Zona
 from ..schemas import MapDateRange, MapFilters, MapPoint, ZoneFeature
 
 LOGGER = logging.getLogger("app.routers.mapa_calor")
-ALLOWED_ROLES = ("Gerente", "Jefe", "Analista")
+# Permiten acceder al módulo de Mapa de Calor
+ALLOWED_ROLES = ("Gerente", "JefeOperaciones", "Analista", "EncargadoSipCop")
 
 
 @dataclass
 class User:
-    """RepresentaciÃ³n mÃ­nima del usuario autenticado."""
+    """Representación mínima del usuario autenticado."""
 
     id: int
     username: str
@@ -38,7 +39,7 @@ class User:
 
 
 def get_current_user() -> User:
-    """Stub de autenticaciÃ³n para entornos sin mÃ³dulo de seguridad."""
+    """Stub de autenticación para entornos sin módulo de seguridad."""
 
     return User(id=1, username="demo", role="Analista")
 
@@ -68,8 +69,8 @@ def _parse_int_list(value: Optional[str]) -> List[int]:
     for raw in _parse_csv_param(value):
         try:
             items.append(int(raw))
-        except ValueError as exc:  # pragma: no cover - validaciÃ³n defensiva
-            raise HTTPException(status_code=400, detail=f"Zona invÃ¡lida: {raw}") from exc
+        except ValueError as exc:  # pragma: no cover - validación defensiva
+            raise HTTPException(status_code=400, detail=f"Zona inválida: {raw}") from exc
     return items
 
 
@@ -79,7 +80,7 @@ def _parse_date(value: Optional[str]) -> Optional[datetime]:
     try:
         return datetime.strptime(value, "%Y-%m-%d")
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Fecha invÃ¡lida: {value}") from exc
+        raise HTTPException(status_code=400, detail=f"Fecha inválida: {value}") from exc
 
 
 def _build_filters_summary(params: Dict[str, object]) -> Dict[str, object]:
@@ -97,6 +98,7 @@ def _fetch_denuncias(
     tipos: Optional[str],
     turnos: Optional[str],
     zonas: Optional[str],
+    anio: Optional[int] = None
 ) -> List[Denuncia]:
     desde_dt = _parse_date(desde)
     hasta_dt = _parse_date(hasta)
@@ -104,12 +106,17 @@ def _fetch_denuncias(
     turnos_list = _parse_csv_param(turnos)
     zonas_list = _parse_int_list(zonas)
 
+    # Year filter (optional)
+    year_val = anio if isinstance(anio, int) else None
+
     stmt = (
         select(Denuncia)
         .where(Denuncia.latitud.is_not(None), Denuncia.longitud.is_not(None))
         .order_by(Denuncia.fecha_hora_suceso.desc().nullslast(), Denuncia.id.desc())
     )
 
+    if year_val:
+        stmt = stmt.where(extract('year', Denuncia.fecha_hora_suceso) == year_val)
     if desde_dt:
         stmt = stmt.where(Denuncia.fecha_hora_suceso >= desde_dt)
     if hasta_dt:
@@ -166,7 +173,7 @@ def get_filters(
         if value
     ]
 
-    # Fallbacks si la BD aÃºn no tiene datos
+    # Fallbacks si la BD aún no tiene datos
     if not tipos:
         tipos = ["Robo", "Hurto", "Lesiones", "Violencia familiar", "Otros"]
 
@@ -182,7 +189,7 @@ def get_filters(
     ]
 
     if not turnos:
-        turnos = ["MaÃ±ana", "Tarde", "Noche"]
+        turnos = ["Mañana", "Tarde", "Noche"]
 
     zonas = db.scalars(select(Zona.id_zona).order_by(Zona.id_zona)).all()
     if not zonas:
@@ -197,6 +204,9 @@ def get_filters(
         max=max_fecha.date().isoformat() if max_fecha else None,
     )
 
+    years_rows = db.execute(select(func.date_part('year', Denuncia.fecha_hora_suceso).label('y')).distinct().order_by(func.date_part('year', Denuncia.fecha_hora_suceso))).all()
+    years = [int(row[0]) for row in years_rows if row and row[0] is not None]
+
     filters_summary = _build_filters_summary({"tipos": tipos, "turnos": turnos, "zonas": zonas})
     LOGGER.info(
         "user=%s role=%s endpoint=/filters filters=%s",
@@ -205,7 +215,7 @@ def get_filters(
         filters_summary,
     )
 
-    return MapFilters(tipos=tipos, turnos=turnos, zonas=list(zonas), fecha=fecha_range)
+    return MapFilters(tipos=tipos, turnos=turnos, zonas=list(zonas), fecha=fecha_range, anios=years)
 
 
 @router.get("/points", response_model=List[MapPoint])
@@ -215,10 +225,11 @@ def get_points(
     tipo: Optional[str] = Query(None, description="Tipos de denuncia separados por coma"),
     turno: Optional[str] = Query(None, description="Turnos separados por coma"),
     zona: Optional[str] = Query(None, description="Zonas separadas por coma"),
+    anio: Optional[int] = Query(None, description="Año (e.g., 2025); vacío=Todos"),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ALLOWED_ROLES)),
 ) -> List[MapPoint]:
-    denuncias = _fetch_denuncias(db, desde, hasta, tipo, turno, zona)
+    denuncias = _fetch_denuncias(db, desde, hasta, tipo, turno, zona, anio)
     puntos = [_denuncia_to_point(x) for x in denuncias]
 
     filters_summary = _build_filters_summary(
@@ -269,10 +280,11 @@ def download_points_csv(
     tipo: Optional[str] = Query(None),
     turno: Optional[str] = Query(None),
     zona: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None, description="Año (e.g., 2025); vacío=Todos"),
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*ALLOWED_ROLES)),
 ) -> StreamingResponse:
-    denuncias = _fetch_denuncias(db, desde, hasta, tipo, turno, zona)
+    denuncias = _fetch_denuncias(db, desde, hasta, tipo, turno, zona, anio)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -310,6 +322,3 @@ def download_points_csv(
 
     headers = {"Content-Disposition": "attachment; filename=incidentes_filtrados.csv"}
     return StreamingResponse(output, media_type="text/csv", headers=headers)
-
-
-

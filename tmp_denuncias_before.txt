@@ -1,4 +1,4 @@
-﻿# app/routers/denuncias.py
+# app/routers/denuncias.py
 from __future__ import annotations
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -12,8 +12,9 @@ from .. import models  # <- usamos el modelo directamente
 from ..database import get_db
 
 router = APIRouter()
+router = APIRouter()
 
-ENRICH_ON_UPLOAD = os.getenv("ENRICH_ON_UPLOAD", "true").lower() in ("1","true","yes","y")
+ENRICH_ON_UPLOAD = os.getenv("ENRICH_ON_UPLOAD", "true").lower() -in @("1","true","yes","y")
 
 
 # =========================
@@ -38,7 +39,7 @@ def _parse_dt(v) -> datetime:
         dt = pd.to_datetime(s, errors="raise")
         return dt.to_pydatetime() if hasattr(dt, "to_pydatetime") else dt
     except Exception:
-        raise ValueError(f"Fecha/hora invÃ¡lida: {v}")
+        raise ValueError(f"Fecha/hora inválida: {v}")
 
 def _opt_str(v) -> Optional[str]:
     if v is None or (isinstance(v, float) and math.isnan(v)):
@@ -58,10 +59,10 @@ def _req_int(v, field: str) -> int:
     try:
         return int(v)
     except Exception:
-        raise ValueError(f"{field} invÃ¡lido: {v}")
+        raise ValueError(f"{field} inválido: {v}")
 
 def _gen_numero_parte(prefix: str, fecha: datetime, sec: int) -> str:
-    # PAR-YYYYMMDD-#### (mÃ¡x 30 chars)
+    # PAR-YYYYMMDD-#### (máx 30 chars)
     return f"{prefix}-{fecha.strftime('%Y%m%d')}-{sec:04d}"[:30]
 
 # =========================
@@ -147,7 +148,7 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                     lugar_ocurrencia=_opt_str(row["lugar_ocurrencia"]),
                     direccion_ocurrencia=_opt_str(row["direccion_ocurrencia"]),
                     comentarios=_opt_str(row["comentarios"]),
-                    # Campos de geocodificaciÃ³n quedan en None (los completa el job de geocoding)
+                    # Campos de geocodificación quedan en None (los completa el job de geocoding)
                 )
                 try:
                     from ..services.enrich import enrich_denuncia_input
@@ -174,7 +175,7 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
                 # +2 por encabezado y base 1 de Excel
                 raise HTTPException(400, f"Error en fila {i+2}: {e}")
 
-        # InserciÃ³n directa
+        # Inserción directa
         if objetos:
             db.bulk_save_objects(objetos)
             db.commit()
@@ -202,11 +203,11 @@ def listar(
     turno: Optional[str] = Query(None),
     desde: Optional[str] = Query(None, description="YYYY-MM-DD o YYYY-MM-DD HH:MM:SS"),
     hasta: Optional[str] = Query(None, description="YYYY-MM-DD o YYYY-MM-DD HH:MM:SS"),
-    q: Optional[str] = Query(None, description="BÃºsqueda libre en texto"),
+    q: Optional[str] = Query(None, description="Búsqueda libre en texto"),
     limit: int = Query(200, ge=1, le=5000),
     db: Session = Depends(get_db),
 ):
-    # si ya tenÃ­as schemas.DenunciaResponse, puedes dejar tu versiÃ³n original
+    # si ya tenías schemas.DenunciaResponse, puedes dejar tu versión original
     from .. import crud, schemas
     return crud.listar_denuncias(
         db,
@@ -237,3 +238,4 @@ def stats_advanced(db: Session = Depends(get_db)):
 
 
 # ======== FIN DASHBOARD AVANZADO ========
+

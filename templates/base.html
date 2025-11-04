@@ -7,6 +7,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
+
+    <style>
+        .nav-item i {color: #00dd77 !important}
+        
+    </style>
 </head>
 <body>
     {# Detectamos páginas de autenticación para ocultar sidebar y centrar formularios #}
@@ -19,8 +24,9 @@
                 <div class="position-sticky pt-3">
                     <div class="text-center mb-4">
                         <i class="fas fa-shield-alt text-white fs-1 mb-2"></i>
-                        <h5 class="text-white">Data Intelligence</h5>
+                        <h5 class="text-white">SafeData Intelligence</h5>
                     </div>
+                    {% set role = request.state.current_user.role if request.state and request.state.current_user else '' %}
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link text-white {% if request.url.path == '/' %}active{% endif %}" 
@@ -29,6 +35,8 @@
                                 Panel Principal
                             </a>
                         </li>
+                        {# Carga de Denuncias: Gerente y EncargadoSipCop #}
+                        {% if role in ['Gerente','EncargadoSipCop'] %}
                         <li class="nav-item">
                             <a class="nav-link text-white {% if 'carga-denuncias' in request.url.path %}active{% endif %}" 
                             href="/carga-denuncias">
@@ -36,6 +44,9 @@
                                 Carga de Denuncias
                             </a>
                         </li>
+                        {% endif %}
+                        {# Listado: Gerente, JefeOperaciones, EncargadoSipCop #}
+                        {% if role in ['Gerente','JefeOperaciones','EncargadoSipCop'] %}
                         <li class="nav-item">
                             <a class="nav-link text-white {% if 'listado-denuncias' in request.url.path %}active{% endif %}" 
                             href="/listado-denuncias">
@@ -43,6 +54,9 @@
                                 Listado de Denuncias
                             </a>
                         </li>
+                        {% endif %}
+                        {# Predicción IA: todos excepto EncargadoSipCop #}
+                        {% if role in ['Gerente','JefeOperaciones','Analista'] %}
                         <li class="nav-item">
                             <a class="nav-link text-white {% if 'prediccion-ia' in request.url.path %}active{% endif %}" 
                             href="/prediccion-ia">
@@ -50,6 +64,8 @@
                                 Predicción IA
                             </a>
                         </li>
+                        {% endif %}
+                        {# Mapa de Calor: todos los roles #}
                         <li class="nav-item">
                             <a class="nav-link text-white {% if 'mapa-calor' in request.url.path %}active{% endif %}" 
                             href="/mapa-calor">
@@ -57,6 +73,8 @@
                                 Mapa de Calor
                             </a>
                         </li>
+                        {# Zonas: todos excepto EncargadoSipCop #}
+                        {% if role in ['Gerente','JefeOperaciones','Analista'] %}
                         <li class="nav-item">
                             <a class="nav-link text-white {% if 'zonas' in request.url.path %}active{% endif %}" 
                             href="/zonas">
@@ -64,6 +82,9 @@
                                 Zonas
                             </a>
                         </li>
+                        {% endif %}
+                        {# Horarios: todos excepto EncargadoSipCop #}
+                        {% if role in ['Gerente','JefeOperaciones','Analista'] %}
                         <li class="nav-item">
                             <a class="nav-link text-white {% if 'horarios' in request.url.path %}active{% endif %}" 
                             href="/horarios">
@@ -71,7 +92,8 @@
                                 Horarios
                             </a>
                         </li>
-                    {% if request.state and request.state.current_user and request.state.current_user.role == 'Gerente' %}<li class="nav-item"><a class="nav-link text-white {% if '/admin/users' in request.url.path %}active{% endif %}" href="/admin/users"><i class="fa-solid fa-users-gear me-2"></i>Usuarios</a></li>{% endif %}</ul>
+                        {% endif %}
+                        {% if request.state and request.state.current_user and request.state.current_user.role == 'Gerente' %}<li class="nav-item"><a class="nav-link text-white {% if '/admin/users' in request.url.path %}active{% endif %}" href="/admin/users"><i class="fa-solid fa-users-gear me-2"></i>Usuarios</a></li>{% endif %}</ul>
 
 
                 </div>

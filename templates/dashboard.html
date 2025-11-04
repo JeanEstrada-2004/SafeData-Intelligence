@@ -3,235 +3,364 @@
 {% block header %}Panel Principal{% endblock %}
 
 {% block content %}
-<div class="row">
-  <!-- Total -->
-  <div class="col-xl-3 col-md-6 mb-4">
-    <div class="card border-left-primary shadow h-100 py-2">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between">
-          <div>
-            <div class="text-xs fw-bold text-primary text-uppercase mb-1">Total de Denuncias</div>
-            <div class="h2 fw-bold text-gray-800">{{ stats.total_denuncias }}</div>
-          </div>
-          <i class="fas fa-file-alt fa-2x text-primary"></i>
+
+<style>
+  .card-bg-top {background: #014344; color: #fff !important}
+  .card-bg-top .text-primary {color: #00dd77 !important}
+  .card-bg-top .badge {padding: 10px 15px;}
+  .card-bg-top .btn {border: 1px solid #00dd77; color: #00dd77}
+  .card-bg-top .btn:hover {background: #00dd77; color: #014344 !important}
+
+  .dashboard-p {
+      font-size: 13px;
+      color: rgb(114 114 114 / 75%) !important; }
+</style>
+
+
+
+<!-- Filtros rápidos (placeholder visual, luego podemos cablear query params) -->
+<div class="card shadow mb-3 card-bg-top">
+  <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+    <div class="me-2"><i class="far fa-calendar me-2 text-primary"></i><strong>Rango:</strong> Últimos 12 meses</div>
+    <div class="badge rounded-pill bg-light text-dark border"><i class="fas fa-map-marker-alt me-1 text-info"></i>Zonas: Todas</div>
+    <div class="badge rounded-pill bg-light text-dark border"><i class="fas fa-clock me-1 text-warning"></i>Turnos: Todos</div>
+    <div class="ms-auto">
+      <a href="/listado-denuncias" class="btn btn-outline-primary btn-sm"><i class="fas fa-list me-1"></i> Ver listado</a>
+    </div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3">
+  <div class="col-xl-3 col-md-6">
+    <div class="card shadow h-100 kpi kpi-primary">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-uppercase small text-muted widget-title">Total de Denuncias</div>
+          <p class="text-muted small mb-0 dashboard-p">Cantidad total de denuncias registradas en el sistema.</p>
+          <div class="display-6 fw-bold" id="kpiTotal">—</div>
         </div>
+        <i class="fas fa-file-alt fa-2x text-primary"></i>
       </div>
     </div>
   </div>
-
-  <!-- Estados -->
-  <div class="col-xl-9 col-lg-8">
-    <div class="card shadow mb-4">
-      <div class="card-header py-3 d-flex align-items-center justify-content-between">
-        <h6 class="m-0 fw-bold text-primary">Estados de Denuncia</h6>
+  <div class="col-xl-3 col-md-6">
+    <div class="card shadow h-100 kpi kpi-success">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-uppercase small text-muted widget-title">SLA ≤ 20 min</div>
+          <p class="text-muted small mb-0 dashboard-p">Porcentaje de casos atendidos en menos de 20 minutos.</p>
+          <div class="display-6 fw-bold"><span id="kpiSLA">—</span><small class="text-muted fs-6">%</small></div>
+        </div>
+        <i class="fas fa-bolt fa-2x text-success"></i>
       </div>
-      <div class="card-body">
-        {% if stats.estados_denuncia %}
-        <div class="row">
-          {% for estado, cantidad in stats.estados_denuncia.items() %}
-          <div class="col-md-3 mb-3">
-            <div class="card text-center border-left-info">
-              <div class="card-body">
-                <h5 class="card-title text-info mb-1">{{ cantidad }}</h5>
-                <p class="card-text text-muted mb-0">{{ estado }}</p>
-              </div>
-            </div>
-          </div>
-          {% endfor %}
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="card shadow h-100 kpi kpi-warning">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-uppercase small text-muted widget-title">Reacción Mediana</div>
+          <p class="text-muted small mb-0 dashboard-p">Tiempo promedio que tarda la patrulla en llegar al lugar.</p>
+          <div class="display-6 fw-bold"><span id="kpiP50">—</span><small class="text-muted fs-6">min</small></div>
         </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-          <i class="fas fa-inbox fa-3x mb-3"></i>
-          <p>Sin datos de estado</p>
+        <i class="fas fa-stopwatch fa-2x text-warning"></i>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="card shadow h-100 kpi kpi-danger">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-uppercase small text-muted widget-title">Reacción p90</div>
+          <p class="text-muted small mb-0 dashboard-p">Tiempo máximo de llegada en el 90 % de los casos atendidos.</p>
+          <div class="display-6 fw-bold"><span id="kpiP90">—</span><small class="text-muted fs-6">min</small></div>
         </div>
-        {% endif %}
+        <i class="fas fa-tachometer-alt fa-2x text-danger"></i>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Denuncias por Turno -->
-<div class="row">
-  <div class="col-12">
-    <div class="card shadow mb-4">
+<!-- Estados + Turnos -->
+<div class="row g-3 mt-1">
+  <div class="col-xl-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Distribución por Estado</h6>
+      </div>
+      <div class="card-body"><canvas id="chartEstados" height="150"></canvas></div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card shadow h-100">
       <div class="card-header py-3">
         <h6 class="m-0 fw-bold text-primary">Denuncias por Turno</h6>
+        
       </div>
       <div class="card-body">
-        {% if stats.denuncias_por_turno %}
-        <div class="row">
-          {% for turno, cantidad in stats.denuncias_por_turno.items() %}
-          <div class="col-md-3 mb-3">
-            <div class="card text-center border-left-info">
-              <div class="card-body">
-                <h5 class="card-title text-info mb-1">{{ cantidad }}</h5>
-                <p class="card-text text-muted mb-0">{{ turno }}</p>
-              </div>
+        <div class="row text-center g-3">
+          <p class="text-muted small mb-0">Distribución de denuncias según el momento del día en que ocurrieron los hechos reportados.</p>
+          <div class="col-4">
+            <div class="p-3 rounded-3 bg-light shadow-sm h-100">
+              <img src="../static/img/c-dia.png" alt="MDN" />
+              <!--<i class="fas fa-sunrise fa-2x text-warning mb-2"></i>-->
+              <div class="fs-2 fw-bold text-dark" id="turnoManana">—</div>
+              <div class="small text-muted">denuncias</div>
+              <div class="fw-semibold text-warning">Mañana</div>
             </div>
           </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-          <i class="fas fa-inbox fa-3x mb-3"></i>
-          <p>No hay denuncias registradas</p>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Gráficos: Últimos 3 meses & Evolución del mes -->
-<div class="row">
-  <div class="col-xl-6">
-    <div class="card shadow mb-4">
-      <div class="card-header py-3">
-        <h6 class="m-0 fw-bold text-primary">Comparativo Últimos 3 Meses</h6>
-      </div>
-      <div class="card-body">
-        <canvas id="chartMeses" height="120"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="col-xl-6">
-    <div class="card shadow mb-4">
-      <div class="card-header py-3">
-        <h6 class="m-0 fw-bold text-primary">Evolución Diaria del Mes</h6>
-      </div>
-      <div class="card-body">
-        <canvas id="chartMesActual" height="120"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Denuncias por Zonas -->
-<div class="row">
-  <div class="col-12">
-    <div class="card shadow mb-4">
-      <div class="card-header py-3">
-        <h6 class="m-0 fw-bold text-primary">Denuncias por Zonas</h6>
-      </div>
-      <div class="card-body">
-        {% if stats.denuncias_por_zona %}
-        <div class="row">
-          {% for zona, cantidad in stats.denuncias_por_zona.items() %}
-          <div class="col-md-3 mb-3">
-            <div class="card text-center border-left-info">
-              <div class="card-body">
-                <h5 class="card-title text-info mb-1">{{ cantidad }}</h5>
-                <p class="card-text text-muted mb-0">Zona {{ zona }}</p>
-              </div>
+          <div class="col-4">
+            <div class="p-3 rounded-3 bg-light shadow-sm h-100">
+              <!--<i class="fas fa-sun fa-2x text-orange mb-2"></i>-->
+              <img src="../static/img/c-tarde.png" alt="MDN" />
+              <div class="fs-2 fw-bold text-dark" id="turnoTarde">—</div>
+              <div class="small text-muted">denuncias</div>
+              <div class="fw-semibold text-orange">Tarde</div>
             </div>
           </div>
-          {% endfor %}
+          <div class="col-4">
+            <div class="p-3 rounded-3 bg-light shadow-sm h-100">
+              <!--<i class="fas fa-moon fa-2x text-primary mb-2"></i>-->
+              <img src="../static/img/c-noche.png" alt="MDN" />
+              <div class="fs-2 fw-bold text-dark" id="turnoNoche">—</div>
+              <div class="small text-muted">denuncias</div>
+              <div class="fw-semibold text-primary">Noche</div>
+            </div>
+          </div>
         </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-          <i class="fas fa-inbox fa-3x mb-3"></i>
-          <p>No hay datos para mostrar</p>
-        </div>
-        {% endif %}
       </div>
+    </div>
+  </div>
+
+</div>
+
+
+
+
+
+<!-- Series -->
+<div class="row g-3 mt-1">
+  <div class="col-xl-8">
+    <div class="card shadow h-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Últimos 12 Meses</h6>
+      </div>
+      <div class="card-body"><canvas id="chart12m" height="120"></canvas></div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Estados por Mes (6M)</h6>
+      </div>
+      <div class="card-body"><canvas id="chartStackedEstados" height="180"></canvas></div>
     </div>
   </div>
 </div>
 
-<!-- Tipos de Denuncia -->
-<div class="row">
-  <div class="col-12">
-    <div class="card shadow mb-4">
-      <div class="card-header py-3">
-        <h6 class="m-0 fw-bold text-primary">Tipos de Denuncia Más Frecuentes</h6>
+<!-- Zonas / Lugares -->
+<div class="row g-3 mt-1">
+  <div class="col-xl-6">
+    <div class="card shadow h-100">
+      <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 fw-bold text-primary">Top Zonas</h6>
+        <a href="/mapa-calor" class="btn btn-sm btn-outline-primary"><i class="fas fa-map me-1"></i>Mapa de Calor</a>
       </div>
+      <div class="card-body"><canvas id="chartZonas" height="180"></canvas></div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card shadow h-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Lugar de Ocurrencia (Top)</h6>
+      </div>
+      <div class="card-body"><canvas id="chartLugar" height="180"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Víctimas / Canales -->
+<div class="row g-3 mt-1">
+  <div class="col-xl-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Sexo de Víctima</h6>
+      </div>
+      <div class="card-body"><canvas id="chartSexo" height="150"></canvas></div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 fw-bold text-primary">Edades de Víctimas</h6>
+        <div class="small text-muted">Promedio: <span id="edadProm">—</span></div>
+      </div>
+      <div class="card-body"><canvas id="chartEdad" height="150"></canvas></div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="card shadow h-100">
+      <div class="card-header py-3">
+        <h6 class="m-0 fw-bold text-primary">Origen de la Denuncia</h6>
+      </div>
+      <div class="card-body"><canvas id="chartOrigen" height="150"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tipos de denuncia -->
+<div class="row g-3 mt-1">
+  <div class="col-6">
+    <div class="card shadow">
+      <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Tipos de Denuncia (Top)</h6></div>
       <div class="card-body">
-        {% if stats.tipos_denuncia %}
         <div class="table-responsive">
-          <table class="table table-bordered">
-            <thead class="table-primary">
-              <tr>
-                <th>Tipo de Denuncia</th>
-                <th width="150">Cantidad</th>
-                <th width="220">Porcentaje</th>
-              </tr>
+          <table class="table table-sm align-middle">
+            <thead class="table-light">
+              <tr><th>Tipo</th><th class="text-center" style="width:110px">Cantidad</th><th style="width:260px">Porcentaje</th></tr>
             </thead>
-            <tbody>
-              {% for tipo, cantidad in stats.tipos_denuncia.items() %}
-              <tr>
-                <td>{{ tipo }}</td>
-                <td class="text-center"><span class="badge bg-info">{{ cantidad }}</span></td>
-                <td>
-                  {% set p = (cantidad / stats.total_denuncias * 100) if stats.total_denuncias > 0 else 0 %}
-                  <div class="progress">
-                    <div class="progress-bar bg-info" style="width: {{ p }}%">{{ "%.1f"|format(p) }}%</div>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
+            <tbody id="tablaTipos"></tbody>
           </table>
         </div>
-        {% else %}
-        <div class="text-center text-muted py-4">
-          <i class="fas fa-chart-bar fa-3x mb-3"></i>
-          <p>No hay datos para mostrar</p>
-        </div>
-        {% endif %}
       </div>
     </div>
   </div>
-</div>
+</div> <br><br>
 
-<!-- Acciones rápidas -->
-<div class="row">
-  <div class="col-12">
-    <div class="card shadow">
-      <div class="card-header py-3"><h6 class="m-0 fw-bold text-primary">Acciones Rápidas</h6></div>
-      <div class="card-body text-center">
-        <a href="/carga-denuncias" class="btn btn-primary btn-lg me-3"><i class="fas fa-upload me-2"></i> Cargar Nuevas Denuncias</a>
-        <a href="/listado-denuncias" class="btn btn-outline-primary btn-lg"><i class="fas fa-list me-2"></i> Ver Todas las Denuncias</a>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
-<!-- Chart.js CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 <style>
-.border-left-primary{border-left:.25rem solid #4e73df!important}
-.border-left-info{border-left:.25rem solid #36b9cc!important}
+  .kpi .display-6{font-size:2.2rem}
+  .kpi-primary{border-left:.25rem solid #7aa2ff1a}
+  .kpi-success{border-left:.25rem solid #6ee7b71a}
+  .kpi-warning{border-left:.25rem solid #fde68a1a}
+  .kpi-danger{border-left:.25rem solid #fca5a51a}
+  /* paleta pastel */
+  :root{
+    --p1:#9EC5FE; --p2:#A8E6CF; --p3:#FFD1DC; --p4:#FDE2A7;
+    --p5:#B5EAEA; --p6:#C7CEEA; --p7:#FFDFD3; --p8:#D7F9F1;
+  }
+  .chip{
+    border:1px solid #e9ecef; background:#f8f9fa; border-radius:9999px; padding:.35rem .75rem;
+  }
 </style>
 <script>
-  // Datos del servidor para gráficos
-  const STATS = {{ stats_json | tojson }};
+(async function(){
+  const pastel = ['#9EC5FE','#A8E6CF','#FFD1DC','#FDE2A7','#B5EAEA','#C7CEEA','#FFDFD3','#D7F9F1'];
+  const res = await fetch('/api/denuncias/stats-advanced');
+  const data = await res.json();
 
-  // Comparativo últimos 3 meses (bar)
-  const ctxMeses = document.getElementById('chartMeses');
-  if (ctxMeses && STATS.ult_3_meses_labels && STATS.ult_3_meses_counts) {
-    new Chart(ctxMeses, {
-      type: 'bar',
-      data: {
-        labels: STATS.ult_3_meses_labels,
-        datasets: [{ label: 'Denuncias', data: STATS.ult_3_meses_counts }]
-      },
-      options: { responsive: true, plugins: { legend: { display: false } } }
-    });
-  }
+  // ===== KPIs =====
+  document.getElementById('kpiTotal').textContent = data.kpis.total ?? 0;
+  document.getElementById('kpiSLA').textContent = data.kpis.sla_pct ?? 0;
+  document.getElementById('kpiP50').textContent = Math.round((data.kpis.reaccion_mediana||0)/60);
+  document.getElementById('kpiP90').textContent = Math.round((data.kpis.reaccion_p90||0)/60);
 
-  // Evolución diaria del mes (line)
-  const ctxMes = document.getElementById('chartMesActual');
-  if (ctxMes && STATS.mes_actual_labels && STATS.mes_actual_counts) {
-    new Chart(ctxMes, {
-      type: 'line',
-      data: {
-        labels: STATS.mes_actual_labels,
-        datasets: [{ label: 'Denuncias', data: STATS.mes_actual_counts, tension: .3, fill: false }]
-      },
-      options: { responsive: true, plugins: { legend: { display: false } } }
-    });
-  }
+  // ===== Estados (donut) =====
+  const estados = data.estados || {};
+  const e_labels = Object.keys(estados);
+  const e_vals = Object.values(estados);
+  new Chart(document.getElementById('chartEstados'),{
+    type:'doughnut',
+    data:{labels:e_labels, datasets:[{data:e_vals, backgroundColor:pastel}]},
+    options:{plugins:{legend:{position:'bottom'}}, cutout:'65%'}
+  });
+
+  // ===== Chips Turno =====
+// ===== Turnos (cards visuales) =====
+const turnos = data.por_turno || {};
+document.getElementById('turnoManana').textContent = turnos["Mañana"] ?? 0;
+document.getElementById('turnoTarde').textContent = turnos["Tarde"] ?? 0;
+document.getElementById('turnoNoche').textContent = turnos["Noche"] ?? 0;
+
+
+  // ===== 12 meses (linea con fill) =====
+  new Chart(document.getElementById('chart12m'),{
+    type:'line',
+    data:{labels:data.series_12m.labels, datasets:[{
+      data:data.series_12m.counts, label:'Denuncias',
+      fill:true, borderColor:'#9EC5FE', backgroundColor:'rgba(158,197,254,.35)', tension:.25, pointRadius:3
+    }]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+  });
+
+  // ===== Estados por mes 6M (stacked bar) =====
+  const st = data.estados_por_mes_6m || {labels:[], datasets:[]};
+  const ds = st.datasets.map((d,idx)=>({ ...d, backgroundColor: pastel[idx%pastel.length] }));
+  new Chart(document.getElementById('chartStackedEstados'),{
+    type:'bar',
+    data:{labels:st.labels, datasets:ds},
+    options:{plugins:{legend:{position:'bottom'}}, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}}}
+  });
+
+  // ===== Zonas (barras horizontales) =====
+  const zonas = data.por_zona || {};
+  const z_labels = Object.keys(zonas).map(z=>'Zona '+z);
+  const z_vals = Object.values(zonas);
+  new Chart(document.getElementById('chartZonas'),{
+    type:'bar',
+    data:{labels:z_labels, datasets:[{data:z_vals, backgroundColor:'#C7CEEA'}]},
+    options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+  });
+
+  // ===== Lugar de ocurrencia (Top) =====
+  const lugar = data.lugar || {};
+  const l_labels = Object.keys(lugar);
+  const l_vals = Object.values(lugar);
+  new Chart(document.getElementById('chartLugar'),{
+    type:'bar',
+    data:{labels:l_labels, datasets:[{data:l_vals, backgroundColor:'#B5EAEA'}]},
+    options:{indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true}}}
+  });
+
+  // ===== Sexo (donut) =====
+  const sexo = data.sexo || {};
+  new Chart(document.getElementById('chartSexo'),{
+    type:'doughnut',
+    data:{labels:Object.keys(sexo), datasets:[{data:Object.values(sexo), backgroundColor:[pastel[2], pastel[5], pastel[6]]}]},
+    options:{plugins:{legend:{position:'bottom'}}, cutout:'65%'}
+  });
+
+  // ===== Edad (buckets - barras) =====
+  document.getElementById('edadProm').textContent = data.edad?.promedio ?? '—';
+  const eb = data.edad?.buckets || {};
+  new Chart(document.getElementById('chartEdad'),{
+    type:'bar',
+    data:{labels:Object.keys(eb), datasets:[{data:Object.values(eb), backgroundColor:'#A8E6CF'}]},
+    options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}}
+  });
+
+  // ===== Origen (donut) =====
+  const origen = data.origen || {};
+  new Chart(document.getElementById('chartOrigen'),{
+    type:'doughnut',
+    data:{labels:Object.keys(origen), datasets:[{data:Object.values(origen), backgroundColor:pastel}]},
+    options:{plugins:{legend:{position:'bottom'}}, cutout:'65%'}
+  });
+
+  // ===== Tabla Tipos =====
+  const tipos = data.tipos || {};
+  const total = data.kpis.total || 1;
+  const tbody = document.getElementById('tablaTipos');
+  Object.entries(tipos).forEach(([tipo,cant])=>{
+    const pct = Math.round((cant/total)*1000)/10;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${tipo}</td>
+      <td class="text-center"><span class="badge bg-info-subtle text-dark">${cant}</span></td>
+      <td>
+        <div class="progress" style="height:10px">
+          <div class="progress-bar" role="progressbar" style="width:${pct}% ; background-color:#9EC5FE"></div>
+        </div>
+        <small class="text-muted">${pct}%</small>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+})();
 </script>
 {% endblock %}

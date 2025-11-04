@@ -19,7 +19,7 @@ from ..utils.seguridad import audit_view, require_roles  # get_current_user no s
 BASE_DIR = Path(__file__).resolve().parents[2]
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# prefijo opcional; si no lo quieres, quÃ­talo y deja como lo tenÃ­as
+# prefijo opcional; si no lo quieres, quítalo y deja como lo tenÃ­as
 router = APIRouter(prefix="/admin", tags=["admin-users"])
 
 

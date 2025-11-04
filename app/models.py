@@ -108,7 +108,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(160), nullable=True)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(String(40), nullable=False)  # Gerente|Jefe|Analista|EncargadoSipCop
+    role = Column(String(40), nullable=False)  # Gerente|JefeOperaciones|Analista|EncargadoSipCop
     is_active = Column(Boolean, nullable=False, server_default="true")
     created_at = Column(TIMESTAMP, server_default=func.now(), nullable=False)
     updated_at = Column(TIMESTAMP, nullable=True)

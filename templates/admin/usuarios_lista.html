@@ -8,7 +8,7 @@
     <div class="col-auto">
       <select name="role" class="form-select">
         <option value="">Rol</option>
-        {% for r in ['Gerente','Jefe','Analista','EncargadoSipCop'] %}
+        {% for r in ['Gerente','JefeOperaciones','Analista','EncargadoSipCop'] %}
         <option value="{{r}}" {% if role==r %}selected{% endif %}>{{r}}</option>
         {% endfor %}
       </select>

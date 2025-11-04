@@ -12,7 +12,7 @@ from .routers import mapa_calor as mapa_calor_router
 from .routers import autenticacion as auth_router
 from .routers import admin_usuarios as admin_users_router
 from .routers import prediccion_ia as prediccion_router
-from .utils.seguridad import try_get_current_user
+from .utils.seguridad import try_get_current_user, require_roles
 
 # Crea tablas (no borra nada; si estÃ¡n creadas, no hace cambios)
 models.Base.metadata.create_all(bind=engine)
@@ -120,12 +120,12 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/carga-denuncias", response_class=HTMLResponse)
-def carga_denuncias(request: Request):
+def carga_denuncias(request: Request, _auth=Depends(require_roles("Gerente", "EncargadoSipCop"))):
     return templates.TemplateResponse("carga_denuncias.html", {"request": request})
 
 
 @app.get("/listado-denuncias", response_class=HTMLResponse)
-def listado_denuncias(request: Request, db: Session = Depends(get_db)):
+def listado_denuncias(request: Request, db: Session = Depends(get_db), _auth=Depends(require_roles("Gerente", "JefeOperaciones", "EncargadoSipCop"))):
     """PÃ¡gina de listado que delega la renderizaciÃ³n de filas al navegador."""
 
     items = crud.listar_denuncias(db, limit=1000)
@@ -145,13 +145,13 @@ def listado_denuncias(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/prediccion-ia", response_class=HTMLResponse)
-def prediccion_ia_page(request: Request):
+def prediccion_ia_page(request: Request, _auth=Depends(require_roles("Gerente", "JefeOperaciones", "Analista"))):
     zonas_disponibles = list(range(1, 8))  # Zonas del 1 al 7
     return templates.TemplateResponse("prediccion-ia.html", {"request": request, "zonas": zonas_disponibles})
 
 
 @app.get("/zonas", response_class=HTMLResponse)
-def zonas_page(request: Request, db: Session = Depends(get_db)):
+def zonas_page(request: Request, db: Session = Depends(get_db), _auth=Depends(require_roles("Gerente", "JefeOperaciones", "Analista"))):
     """Renderiza estadÃ­sticas resumidas por zona."""
 
     stats = crud.get_dashboard_stats(db)
@@ -163,7 +163,7 @@ def zonas_page(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/horarios", response_class=HTMLResponse)
-def horarios_page(request: Request):
+def horarios_page(request: Request, _auth=Depends(require_roles("Gerente", "JefeOperaciones", "Analista"))):
     horarios_stats = [
         {"label": "00:00 - 06:00", "denuncias": 5},
         {"label": "06:00 - 12:00", "denuncias": 11},
@@ -174,7 +174,7 @@ def horarios_page(request: Request):
 
 
 @app.get("/mapa-calor", response_class=HTMLResponse)
-def mapa_calor_page(request: Request):
+def mapa_calor_page(request: Request, _auth=Depends(require_roles("Gerente", "JefeOperaciones", "Analista", "EncargadoSipCop"))):
     return templates.TemplateResponse("mapa_calor.html", {"request": request})
 
 

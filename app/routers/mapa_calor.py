@@ -1,7 +1,7 @@
 ﻿"""Router del modulo Mapa de Calor.
 
 Notas (2025-11):
-- Protegido por roles (Gerente/Jefe/Analista) via require_roles.
+- Protegido por roles (Gerente/JefeOperaciones/Analista) via require_roles.
 - Usa la tabla existente `denuncias` (no requiere `incidentes`).
 - Endpoints: /filters, /points, /zones, /points.csv
 """
@@ -25,7 +25,8 @@ from ..models import Denuncia, Zona
 from ..schemas import MapDateRange, MapFilters, MapPoint, ZoneFeature
 
 LOGGER = logging.getLogger("app.routers.mapa_calor")
-ALLOWED_ROLES = ("Gerente", "Jefe", "Analista")
+# Permiten acceder al módulo de Mapa de Calor
+ALLOWED_ROLES = ("Gerente", "JefeOperaciones", "Analista", "EncargadoSipCop")
 
 
 @dataclass

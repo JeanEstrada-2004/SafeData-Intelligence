@@ -81,17 +81,17 @@
                                 <i class="fa-solid fa-map me-2"></i>
                                 Zonas
                             </a>
-                        </li>
+                        </li> 
                         {% endif %}
                         {# Horarios: todos excepto EncargadoSipCop #}
                         {% if role in ['Gerente','JefeOperaciones','Analista'] %}
-                        <li class="nav-item">
+                        <!--<li class="nav-item">
                             <a class="nav-link text-white {% if 'horarios' in request.url.path %}active{% endif %}" 
                             href="/horarios">
                                 <i class="fa-solid fa-clock me-2"></i>
                                 Horarios
                             </a>
-                        </li>
+                        </li>-->
                         {% endif %}
                         {% if request.state and request.state.current_user and request.state.current_user.role == 'Gerente' %}<li class="nav-item"><a class="nav-link text-white {% if '/admin/users' in request.url.path %}active{% endif %}" href="/admin/users"><i class="fa-solid fa-users-gear me-2"></i>Usuarios</a></li>{% endif %}</ul>
 

@@ -55,7 +55,7 @@ def login_post(
     if not user or not verify_password(password, user.hashed_password) or not user.is_active:
         _audit(db, request, "login_fail")
         return templates.TemplateResponse(
-            "iniciar_sesion.html", {"request": request, "error": "Credenciales invÃ¡lidas o usuario inactivo"}, status_code=400
+            "iniciar_sesion.html", {"request": request, "error": "Credenciales inválidas o usuario inactivo"}, status_code=400
         )
 
     token = create_access_token(user.email, ACCESS_TOKEN_EXPIRES_MIN)
@@ -126,7 +126,7 @@ def reset_password_post(
 ):
     if new_password != confirm_password:
         return templates.TemplateResponse(
-            "restablecer_contrasena.html", {"request": request, "token": token, "error": "Las contraseÃ±as no coinciden"}, status_code=400
+            "restablecer_contrasena.html", {"request": request, "token": token, "error": "Las contraseñas no coinciden"}, status_code=400
         )
 
     prt = (
@@ -134,9 +134,24 @@ def reset_password_post(
         .filter(PasswordResetToken.token == token, PasswordResetToken.used_at.is_(None))
         .first()
     )
-    if not prt or prt.expires_at < datetime.now(timezone.utc):
+    
+    # CORRECCIÓN: Convertir ambos datetimes a aware para comparar correctamente
+    current_time = datetime.now(timezone.utc)
+    
+    # Verificar si prt.expires_at es naive y convertirlo a aware si es necesario
+    if prt and prt.expires_at:
+        if prt.expires_at.tzinfo is None:
+            # Es naive, convertir a aware asumiendo UTC
+            expires_at_aware = prt.expires_at.replace(tzinfo=timezone.utc)
+        else:
+            # Ya es aware
+            expires_at_aware = prt.expires_at
+    else:
+        expires_at_aware = None
+
+    if not prt or not expires_at_aware or expires_at_aware < current_time:
         return templates.TemplateResponse(
-            "restablecer_contrasena.html", {"request": request, "token": token, "error": "Token invÃ¡lido o expirado"}, status_code=400
+            "restablecer_contrasena.html", {"request": request, "token": token, "error": "Token inválido o expirado"}, status_code=400
         )
 
     user = db.get(User, prt.user_id)
@@ -144,10 +159,9 @@ def reset_password_post(
         raise HTTPException(status_code=400, detail="Usuario no encontrado")
 
     user.hashed_password = hash_password(new_password)
-    prt.used_at = datetime.now(timezone.utc)
+    prt.used_at = datetime.now(timezone.utc)  # Este ya es aware
     db.add(user)
     db.add(prt)
     db.commit()
     _audit(db, request, "reset_ok", user)
     return RedirectResponse(url="/login", status_code=302)
-

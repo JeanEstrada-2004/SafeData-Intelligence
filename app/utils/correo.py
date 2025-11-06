@@ -20,9 +20,9 @@ def send_password_reset_email(to_email: str, reset_url: str) -> None:
     msg["To"] = to_email
     html = f"""
     <html><body>
-      <p>Has solicitado restablecer tu contraseÃ±a.</p>
+      <p>Has solicitado restablecer tu contraseña.</p>
       <p>
-        Haz clic en el siguiente enlace (vÃ¡lido por 24 horas):<br/>
+        Haz clic en el siguiente enlace (válido por 24 horas):<br/>
         <a href="{reset_url}">{reset_url}</a>
       </p>
       <p>Si no solicitaste este cambio, ignora este correo.</p>

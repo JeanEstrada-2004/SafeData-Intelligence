@@ -1,4 +1,6 @@
 ﻿"""Punto de entrada principal de la aplicaciÃ³n FastAPI."""
+import os
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -175,7 +177,13 @@ def horarios_page(request: Request, _auth=Depends(require_roles("Gerente", "Jefe
 
 @app.get("/mapa-calor", response_class=HTMLResponse)
 def mapa_calor_page(request: Request, _auth=Depends(require_roles("Gerente", "JefeOperaciones", "Analista", "EncargadoSipCop"))):
-    return templates.TemplateResponse("mapa_calor.html", {"request": request})
+    return templates.TemplateResponse(
+        "mapa_calor.html",
+        {
+            "request": request,
+            "mapbox_token": os.getenv("MAPBOX_ACCESS_TOKEN", "").strip(),
+        },
+    )
 
 
 # ---------------------------

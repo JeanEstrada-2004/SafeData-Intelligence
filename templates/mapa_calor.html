@@ -1,145 +1,112 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Mapa de Calor - SafeData Intelligence{% endblock %}
-{% block header %}Mapa de Calor{% endblock %}
+{% block header %}Mapa de calor{% endblock %}
+{% block page_kicker %}Análisis geoespacial de incidentes{% endblock %}
+
+{% block styles %}
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/mapa_calor.css?v=20260611-4">
+{% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="anonymous" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="anonymous" />
-<link rel="stylesheet" href="/static/css/mapa_calor.css?v=20251101-7" />
-
 <div class="mapa-calor-container">
-  <!-- Filtros flotantes en la parte superior izquierda -->
-  <div class="floating-filters">
-    <div class="filters-header">
-      <h5>Filtros del Mapa</h5>
-      <button id="toggle-filters" class="btn-toggle">
-        <span class="toggle-icon"></span>
+  <aside class="map-control-panel" id="map-control-panel">
+    <div class="map-panel-header">
+      <div>
+        <span class="panel-kicker">Geointeligencia</span>
+        <h2>Filtros del mapa</h2>
+      </div>
+      <button id="toggle-filters" class="map-icon-button" type="button" title="Contraer filtros">
+        <i class="fa-solid fa-chevron-left"></i>
       </button>
     </div>
-    
-    <div class="filters-content" id="filters-content">
-      <!-- Filtros de Fecha -->
-      <div class="filter-group">
-        <div class="filter-title">Filtros de Fecha</div>
-        <div class="filter-controls">
-          <div class="form-group">
-            <label for="filtro-anio">Año</label>
-            <select id="filtro-anio" class="form-control">
-              <option value="">Todos los años</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="fecha-desde">Fecha inicio</label>
-            <input type="date" id="fecha-desde" class="form-control" />
-          </div>
-          <div class="form-group">
-            <label for="fecha-hasta">Fecha fin</label>
-            <input type="date" id="fecha-hasta" class="form-control" />
-          </div>
+
+    <div class="map-panel-body">
+      <div class="map-filter-group">
+        <label for="filtro-anio">Año</label>
+        <select id="filtro-anio" class="form-select">
+          <option value="">Todos los años</option>
+        </select>
+      </div>
+      <div class="map-filter-grid">
+        <div class="map-filter-group">
+          <label for="fecha-desde">Desde</label>
+          <input type="date" id="fecha-desde" class="form-control" />
+        </div>
+        <div class="map-filter-group">
+          <label for="fecha-hasta">Hasta</label>
+          <input type="date" id="fecha-hasta" class="form-control" />
+        </div>
+      </div>
+      <div class="map-filter-group">
+        <label for="tipo-denuncia">Tipo de denuncia</label>
+        <select id="tipo-denuncia" class="form-select" multiple></select>
+      </div>
+      <div class="map-filter-grid">
+        <div class="map-filter-group">
+          <label for="turno">Turno</label>
+          <select id="turno" class="form-select" multiple></select>
+        </div>
+        <div class="map-filter-group">
+          <label for="zona">Zona</label>
+          <select id="zona" class="form-select" multiple></select>
         </div>
       </div>
 
-      <!-- Filtros de Tipo -->
-      <div class="filter-group">
-        <div class="filter-title">Filtros de Tipo</div>
-        <div class="filter-controls">
-          <div class="form-group">
-            <label for="tipo-denuncia">Tipo de denuncia</label>
-            <select id="tipo-denuncia" class="form-control" multiple>
-              <option value="accidente">Accidente de trámite</option>
-              <option value="acoso">Acoso sexual</option>
-              <option value="agresion">Agresión psicológica</option>
-              <option value="alteracion">Alteración del orden público</option>
-            </select>
-            <small>Seleccione uno o varios tipos</small>
-          </div>
-          <div class="form-group">
-            <label for="turno">Turno</label>
-            <select id="turno" class="form-control" multiple>
-              <option value="mañana">Mañana</option>
-              <option value="tarde">Tarde</option>
-              <option value="noche">Noche</option>
-            </select>
-          </div>
-        </div>
+      <div class="map-action-grid">
+        <button id="aplicar-filtros" class="btn btn-primary" type="button">
+          <i class="fa-solid fa-filter me-2"></i>Aplicar
+        </button>
+        <button id="limpiar-filtros" class="btn btn-secondary" type="button">Limpiar</button>
+        <button id="descargar-csv" class="btn btn-outline-primary" type="button">CSV</button>
       </div>
 
-      <!-- Filtros de Ubicación -->
-      <div class="filter-group">
-        <div class="filter-title">Filtros de Ubicación</div>
-        <div class="filter-controls">
-          <div class="form-group">
-            <label for="zona">Zonas</label>
-            <select id="zona" class="form-control" multiple>
-              <option value="1">Zona 1</option>
-              <option value="2">Zona 2</option>
-              <option value="3">Zona 3</option>
-              <option value="4">Zona 4</option>
-              <option value="5">Zona 5</option>
-              <option value="6">Zona 6</option>
-              <option value="7">Zona 7</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Botones de acción -->
-      <div class="filter-actions">
-        <button id="aplicar-filtros" class="btn btn-primary">Aplicar filtros</button>
-        <button id="limpiar-filtros" class="btn btn-secondary">Limpiar</button>
-        <button id="descargar-csv" class="btn btn-outline">Descargar CSV</button>
-      </div>
-
-      <!-- Capas -->
-      <div class="layers-control">
-        <div class="filter-title">Capas de Visualización</div>
-        <div class="layers-buttons">
-          <button id="toggle-heat" class="btn-layer active" data-layer="heat">
-            <span class="layer-indicator heat"></span>
-            Heatmap
-          </button>
-          <button id="toggle-clusters" class="btn-layer" data-layer="clusters">
-            <span class="layer-indicator cluster"></span>
-            Clusters
-          </button>
-          <button id="toggle-zonas" class="btn-layer" data-layer="zones">
-            <span class="layer-indicator zone"></span>
-            Zonas
-          </button>
-        </div>
+      <div class="map-layers">
+        <div class="map-layer-title">Capas</div>
+        <button id="toggle-heat" class="map-layer-button active" data-layer="heat" type="button">
+          <span class="layer-dot heat"></span>Heatmap
+        </button>
+        <button id="toggle-clusters" class="map-layer-button active" data-layer="clusters" type="button">
+          <span class="layer-dot cluster"></span>Clusters
+        </button>
+        <button id="toggle-zonas" class="map-layer-button active" data-layer="zones" type="button">
+          <span class="layer-dot zone"></span>Zonas
+        </button>
       </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- Mapa -->
-  <div class="map-container">
+  <div class="map-stage">
     <div id="map"></div>
-    
-    <!-- Resumen de filtros aplicados -->
-    <div class="filters-summary" id="filters-summary">
-      <div class="summary-content">
-        <span id="filtros-resumen">Use los filtros y presione "Aplicar" para actualizar el mapa.</span>
-        <span class="incident-count">Incidentes visibles: <strong id="incident-count">0</strong></span>
+    <div id="map-token-warning" class="map-token-warning" hidden>
+      <i class="fa-solid fa-key"></i>
+      <div>
+        <strong>Token de Mapbox pendiente</strong>
+        <span>Agrega MAPBOX_ACCESS_TOKEN en .env para activar el mapa premium.</span>
       </div>
     </div>
 
-    <!-- Leyenda -->
-    <div class="legend" id="map-legend">
-      <h6>Intensidad</h6>
-      <div class="gradient"></div>
-      <div class="labels">
-        <span>Baja</span>
-        <span>Alta</span>
+    <div class="map-hud">
+      <div>
+        <span class="hud-label">Incidentes visibles</span>
+        <strong id="incident-count">0</strong>
       </div>
+      <div id="filtros-resumen" class="hud-summary">Sin filtros aplicados</div>
+    </div>
+
+    <div class="map-legend">
+      <span>Baja</span>
+      <div class="legend-gradient"></div>
+      <span>Alta</span>
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet.heat/dist/leaflet-heat.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin="anonymous"></script>
-<script src="/static/js/mapa_calor.js?v=20251101-7"></script>
+<script>
+  window.SAFEDATA_MAPBOX_TOKEN = {{ mapbox_token | tojson }};
+</script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
+<script src="/static/js/mapa_calor.js?v=20260611-4"></script>
 {% endblock %}

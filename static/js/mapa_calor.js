@@ -1,194 +1,316 @@
-﻿(function () {
+(function () {
   const API_BASE = "/api/map";
   const STORAGE_KEY = "safedata.mapaCalor.filters";
-  const MAP_CENTER = [-16.408978, -71.531532];
-  const DEFAULT_ZOOM = 13;
-  const HEAT_OPTIONS = { radius: 25, blur: 15, minOpacity: 0.3, maxZoom: 17 };
+  const MAP_CENTER = [-71.531532, -16.408978];
+  const DEFAULT_STYLE = "mapbox://styles/mapbox/standard";
+  const FALLBACK_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 
   let map;
-  let heatLayer;
-  let clusterLayer;
-  let zonesLayer;
-  let zoneFeatures = [];
+  let currentPoints = emptyFeatureCollection();
+  let currentZones = emptyFeatureCollection();
   let filtersCollapsed = false;
+  let fallbackApplied = false;
 
-  // Estado de las capas
-  let layersState = {
+  const layersState = {
     heat: true,
-    clusters: false,
-    zones: false
+    clusters: true,
+    zones: true,
   };
 
   document.addEventListener("DOMContentLoaded", init);
 
   async function init() {
-    if (typeof L === "undefined") {
-      showSummary("No se pudo cargar Leaflet (CDN bloqueado).", true);
-      try { await loadFilters(); } catch (_) {}
-      return;
-    }
-
-    map = L.map("map", { 
-      zoomControl: true,
-      zoomControl: false // Desactivamos el control por defecto para posicionarlo manualmente
-    }).setView(MAP_CENTER, DEFAULT_ZOOM);
-    
-    // Añadir control de zoom personalizado
-    L.control.zoom({
-      position: 'topright'
-    }).addTo(map);
-    
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
-
-    heatLayer = L.heatLayer([], HEAT_OPTIONS).addTo(map);
-    clusterLayer = L.markerClusterGroup();
-    zonesLayer = L.geoJSON([], {
-      style: () => ({ color: "#2ecc71", weight: 2, fillOpacity: 0.08 }),
-      onEachFeature: (_feature, layer) => {
-        layer.on({ mouseover: () => layer.setStyle({ weight: 3, fillOpacity: 0.2 }), mouseout: () => zonesLayer.resetStyle(layer) });
-      },
-    });
-
-    // Inicializar estado de capas
-    updateLayerButtons();
-
     attachListeners();
+    updateLayerButtons();
 
     try {
       await loadFilters();
-      await loadZones();
       const restored = restoreFilters();
-      await applyFilters(restored);
+
+      if (!window.SAFEDATA_MAPBOX_TOKEN) {
+        showTokenWarning();
+        showSummary("Token de Mapbox pendiente.", true);
+        await loadPreviewData(restored);
+        return;
+      }
+
+      if (typeof mapboxgl === "undefined") {
+        showSummary("No se pudo cargar Mapbox GL JS.", true);
+        return;
+      }
+
+      mapboxgl.accessToken = window.SAFEDATA_MAPBOX_TOKEN;
+      createMap();
+      map.once("load", async () => {
+        addOrUpdateSourcesAndLayers();
+        await loadZones();
+        await applyFilters(restored);
+      });
     } catch (error) {
       console.error("Error inicializando mapa", error);
       showSummary("No se pudieron cargar los datos del mapa.", true);
     }
   }
 
+  function createMap() {
+    map = new mapboxgl.Map({
+      container: "map",
+      style: DEFAULT_STYLE,
+      center: MAP_CENTER,
+      zoom: 13.4,
+      pitch: 60,
+      bearing: -20,
+      antialias: true,
+      attributionControl: false,
+      config: {
+        basemap: {
+          lightPreset: "dusk",
+          showPointOfInterestLabels: true,
+          showRoadLabels: true,
+          showTransitLabels: false,
+        },
+      },
+    });
+
+    map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new mapboxgl.FullscreenControl(), "top-right");
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
+
+    map.on("style.load", () => {
+      addOrUpdateSourcesAndLayers();
+      applyLayerVisibility();
+    });
+
+    map.on("error", (event) => {
+      const message = String(event?.error?.message || "");
+      if (!fallbackApplied && message && !message.includes("401")) {
+        fallbackApplied = true;
+        map.setStyle(FALLBACK_STYLE);
+        showSummary("Estilo estándar no disponible. Usando vista satelital.", false);
+      }
+    });
+  }
+
   function attachListeners() {
-    document.getElementById("aplicar-filtros")?.addEventListener("click", async (event) => {
-      event.preventDefault();
+    document.getElementById("aplicar-filtros")?.addEventListener("click", async () => {
       const filters = collectFilters();
       saveFilters(filters);
       await applyFilters(filters);
     });
 
-    document.getElementById("descargar-csv")?.addEventListener("click", (event) => {
-      event.preventDefault();
-      const filters = collectFilters();
-      const query = buildQueryString(filters);
+    document.getElementById("descargar-csv")?.addEventListener("click", () => {
+      const query = buildQueryString(collectFilters());
       window.open(`${API_BASE}/points.csv${query ? `?${query}` : ""}`, "_blank");
     });
 
-    document.getElementById("limpiar-filtros")?.addEventListener("click", async (event) => {
-      event.preventDefault();
-      await clearFilters();
+    document.getElementById("limpiar-filtros")?.addEventListener("click", clearFilters);
+
+    document.getElementById("toggle-heat")?.addEventListener("click", () => toggleLayer("heat"));
+    document.getElementById("toggle-clusters")?.addEventListener("click", () => toggleLayer("clusters"));
+    document.getElementById("toggle-zonas")?.addEventListener("click", () => toggleLayer("zones"));
+
+    document.getElementById("filtro-anio")?.addEventListener("change", function () {
+      if (this.value) {
+        document.getElementById("fecha-desde").value = `${this.value}-01-01`;
+        document.getElementById("fecha-hasta").value = `${this.value}-12-31`;
+      }
     });
 
-    // CORRECCIÓN: Permitir selección múltiple de capas
-    document.getElementById("toggle-heat")?.addEventListener("click", function() {
-      toggleLayer("heat");
-    });
-    
-    document.getElementById("toggle-clusters")?.addEventListener("click", function() {
-      toggleLayer("clusters");
-    });
-    
-    document.getElementById("toggle-zonas")?.addEventListener("click", function() {
-      toggleLayer("zones");
-    });
-    
-    // Event listener para el filtro de año
-    document.getElementById("filtro-anio")?.addEventListener("change", function() {
-      const selectedYear = this.value;
-      if (selectedYear) {
-        document.getElementById("fecha-desde").value = `${selectedYear}-01-01`;
-        document.getElementById("fecha-hasta").value = `${selectedYear}-12-31`;
-      }
-    });
-    
-    // CORRECCIÓN: Event listener mejorado para expandir/contraer filtros
-    document.getElementById("toggle-filters")?.addEventListener("click", function(e) {
-      e.stopPropagation(); // Prevenir que el evento se propague
-      toggleFilters();
-    });
-    
-    // CORRECCIÓN: Permitir hacer clic en el panel colapsado completo
-    document.querySelector('.floating-filters')?.addEventListener('click', function(e) {
-      if (this.classList.contains('collapsed')) {
-        toggleFilters();
-      }
-    });
-    
-    // CORRECCIÓN: Prevenir que los clics dentro del panel expandido cierren el panel
-    document.querySelector('.filters-content')?.addEventListener('click', function(e) {
-      e.stopPropagation();
-    });
+    document.getElementById("toggle-filters")?.addEventListener("click", toggleFilters);
   }
 
-  // CORRECCIÓN: Función mejorada para toggle de filtros
-  function toggleFilters() {
-    const filtersPanel = document.querySelector('.floating-filters');
-    filtersCollapsed = !filtersCollapsed;
-    
-    if (filtersCollapsed) {
-      filtersPanel.classList.add("collapsed");
+  function addOrUpdateSourcesAndLayers() {
+    if (!map || !map.isStyleLoaded()) return;
+
+    if (!map.getSource("denuncias-heat")) {
+      map.addSource("denuncias-heat", {
+        type: "geojson",
+        data: currentPoints,
+        buffer: 0,
+        maxzoom: 14,
+      });
     } else {
-      filtersPanel.classList.remove("collapsed");
+      map.getSource("denuncias-heat").setData(currentPoints);
+    }
+
+    if (!map.getSource("denuncias-cluster")) {
+      map.addSource("denuncias-cluster", {
+        type: "geojson",
+        data: currentPoints,
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 44,
+      });
+    } else {
+      map.getSource("denuncias-cluster").setData(currentPoints);
+    }
+
+    if (!map.getSource("zonas-source")) {
+      map.addSource("zonas-source", {
+        type: "geojson",
+        data: currentZones,
+      });
+    } else {
+      map.getSource("zonas-source").setData(currentZones);
+    }
+
+    addZonesLayers();
+    addHeatLayer();
+    addClusterLayers();
+    bindMapInteractions();
+  }
+
+  function addZonesLayers() {
+    if (!map.getLayer("zones-fill")) {
+      map.addLayer({
+        id: "zones-fill",
+        type: "fill",
+        source: "zonas-source",
+        paint: {
+          "fill-color": "#00a878",
+          "fill-opacity": 0.12,
+        },
+      });
+    }
+    if (!map.getLayer("zones-outline")) {
+      map.addLayer({
+        id: "zones-outline",
+        type: "line",
+        source: "zonas-source",
+        paint: {
+          "line-color": "#00d89c",
+          "line-width": 2,
+          "line-opacity": 0.75,
+        },
+      });
     }
   }
 
-  // CORRECCIÓN: Actualizar botones de capas según el estado actual
-  function updateLayerButtons() {
-    document.querySelectorAll('.btn-layer').forEach(btn => {
-      const layerType = btn.getAttribute('data-layer');
-      if (layersState[layerType]) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
+  function addHeatLayer() {
+    if (map.getLayer("denuncias-heatmap")) return;
+    map.addLayer({
+      id: "denuncias-heatmap",
+      type: "heatmap",
+      source: "denuncias-heat",
+      maxzoom: 17,
+      paint: {
+        "heatmap-weight": ["interpolate", ["linear"], ["get", "peso"], 0, 0, 1, 1],
+        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 11, 0.7, 15, 1.4],
+        "heatmap-color": [
+          "interpolate",
+          ["linear"],
+          ["heatmap-density"],
+          0,
+          "rgba(22,166,182,0)",
+          0.18,
+          "rgba(22,166,182,0.55)",
+          0.42,
+          "rgba(15,118,110,0.72)",
+          0.68,
+          "rgba(217,146,9,0.82)",
+          1,
+          "rgba(208,68,68,0.96)",
+        ],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 11, 16, 15, 34],
+        "heatmap-opacity": 0.86,
+      },
     });
   }
 
-  // CORRECCIÓN: Modificado para permitir múltiples capas activas
-  function toggleLayer(layer) {
-    // Cambiar el estado de la capa
-    layersState[layer] = !layersState[layer];
-    
-    // Aplicar cambios al mapa
-    if (layer === "heat") {
-      layersState.heat ? heatLayer.addTo(map) : map.removeLayer(heatLayer);
+  function addClusterLayers() {
+    if (!map.getLayer("clusters")) {
+      map.addLayer({
+        id: "clusters",
+        type: "circle",
+        source: "denuncias-cluster",
+        filter: ["has", "point_count"],
+        paint: {
+          "circle-color": ["step", ["get", "point_count"], "#16a6b6", 25, "#d99209", 75, "#d04444"],
+          "circle-radius": ["step", ["get", "point_count"], 18, 25, 25, 75, 34],
+          "circle-opacity": 0.9,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "rgba(255,255,255,0.86)",
+        },
+      });
     }
-    if (layer === "clusters") {
-      layersState.clusters ? clusterLayer.addTo(map) : map.removeLayer(clusterLayer);
+
+    if (!map.getLayer("cluster-count")) {
+      map.addLayer({
+        id: "cluster-count",
+        type: "symbol",
+        source: "denuncias-cluster",
+        filter: ["has", "point_count"],
+        layout: {
+          "text-field": ["get", "point_count_abbreviated"],
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-size": 12,
+        },
+        paint: { "text-color": "#ffffff" },
+      });
     }
-    if (layer === "zones") {
-      layersState.zones ? zonesLayer.addTo(map) : map.removeLayer(zonesLayer);
+
+    if (!map.getLayer("unclustered-point")) {
+      map.addLayer({
+        id: "unclustered-point",
+        type: "circle",
+        source: "denuncias-cluster",
+        filter: ["!", ["has", "point_count"]],
+        paint: {
+          "circle-color": ["interpolate", ["linear"], ["get", "peso"], 0, "#16a6b6", 0.55, "#d99209", 1, "#d04444"],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 4, 16, 8],
+          "circle-opacity": 0.88,
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
     }
-    
-    // Actualizar la apariencia de los botones
-    updateLayerButtons();
+  }
+
+  function bindMapInteractions() {
+    if (map.__safedataBound) return;
+    map.__safedataBound = true;
+
+    map.on("click", "clusters", (event) => {
+      const features = map.queryRenderedFeatures(event.point, { layers: ["clusters"] });
+      const clusterId = features[0].properties.cluster_id;
+      map.getSource("denuncias-cluster").getClusterExpansionZoom(clusterId, (err, zoom) => {
+        if (err) return;
+        map.easeTo({ center: features[0].geometry.coordinates, zoom });
+      });
+    });
+
+    map.on("click", "unclustered-point", (event) => {
+      const feature = event.features[0];
+      const p = feature.properties || {};
+      new mapboxgl.Popup({ closeButton: true, maxWidth: "300px" })
+        .setLngLat(feature.geometry.coordinates)
+        .setHTML(`
+          <div class="map-popup">
+            <strong>${p.tipo || "Sin tipo"}</strong>
+            <div class="meta">Turno: ${p.turno || "-"}<br>Fecha: ${formatDateTime(p.fecha)}<br>Zona: ${p.zona || "-"}<br>Dirección: ${p.direccion || "Sin registro"}</div>
+          </div>
+        `)
+        .addTo(map);
+    });
+
+    ["clusters", "unclustered-point"].forEach((layer) => {
+      map.on("mouseenter", layer, () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", layer, () => { map.getCanvas().style.cursor = ""; });
+    });
   }
 
   async function loadFilters() {
     const response = await fetch(`${API_BASE}/filters`, { credentials: "include" });
     if (!response.ok) throw new Error("No se pudo obtener la configuración de filtros");
     const payload = await response.json();
-    
-    // Cargar años disponibles (desde 2020 hasta el año actual)
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let year = 2020; year <= currentYear; year++) {
-      years.push({ value: year, label: year });
-    }
-    populateSelect("filtro-anio", years);
-    
-    populateSelect("tipo-denuncia", payload.tipos);
-    populateSelect("turno", payload.turnos);
-    populateSelect("zona", payload.zonas.map((z) => ({ value: z, label: `Zona ${z}` })));
+
+    populateSelect("tipo-denuncia", payload.tipos || []);
+    populateSelect("turno", payload.turnos || []);
+    populateSelect("zona", (payload.zonas || []).map((z) => ({ value: z, label: `Zona ${z}` })));
+
+    const years = buildYears(payload.fecha);
+    populateSelect("filtro-anio", [{ value: "", label: "Todos los años" }, ...years]);
+
     const defaults = computeDefaultDates(payload.fecha);
     const fd = document.getElementById("fecha-desde");
     const fh = document.getElementById("fecha-hasta");
@@ -199,17 +321,18 @@
   async function loadZones() {
     const response = await fetch(`${API_BASE}/zones`, { credentials: "include" });
     if (!response.ok) throw new Error("No se pudieron obtener las zonas");
-    zoneFeatures = await response.json();
-    zonesLayer.clearLayers();
-    const enriched = zoneFeatures.map((f) => {
-      const g = f.geojson;
-      if (g.type === "Feature") {
-        g.properties = { ...(g.properties || {}), id_zona: f.id_zona, nombre: f.nombre };
-        return g;
-      }
-      return { type: "Feature", properties: { id_zona: f.id_zona, nombre: f.nombre }, geometry: g.geometry || g };
-    });
-    zonesLayer.addData(enriched);
+    const zones = await response.json();
+    currentZones = zonesToGeoJson(zones);
+    if (map?.getSource("zonas-source")) map.getSource("zonas-source").setData(currentZones);
+  }
+
+  async function loadPreviewData(filters) {
+    const query = buildQueryString(filters);
+    const response = await fetch(`${API_BASE}/points${query ? `?${query}` : ""}`, { credentials: "include" });
+    if (!response.ok) return;
+    const points = await response.json();
+    updateIncidentCounter(points.length);
+    updateSummary(filters, points.length);
   }
 
   async function applyFilters(filters) {
@@ -221,96 +344,88 @@
       throw new Error("Fallo la carga de incidentes");
     }
     const points = await response.json();
-    updateMap(points);
+    currentPoints = pointsToGeoJson(points);
+    if (map?.getSource("denuncias-heat")) map.getSource("denuncias-heat").setData(currentPoints);
+    if (map?.getSource("denuncias-cluster")) map.getSource("denuncias-cluster").setData(currentPoints);
+    updateIncidentCounter(points.length);
     updateSummary(filters, points.length);
   }
 
-  function updateMap(points) {
-    updateHeatLayer(points);
-    updateClusterLayer(points);
-    updateIncidentCounter(points.length);
-    updateZones(points);
+  function toggleFilters() {
+    const panel = document.getElementById("map-control-panel");
+    filtersCollapsed = !filtersCollapsed;
+    panel.classList.toggle("collapsed", filtersCollapsed);
   }
 
-  function updateHeatLayer(points) {
-    const data = points.map((p) => [p.lat, p.lon, p.peso || 1]);
-    heatLayer.setLatLngs(data);
-    // No añadimos/quitamos la capa aquí, eso se controla con el toggle
+  function toggleLayer(layer) {
+    layersState[layer] = !layersState[layer];
+    updateLayerButtons();
+    applyLayerVisibility();
   }
 
-  function updateClusterLayer(points) {
-    clusterLayer.clearLayers();
-    points.forEach((p) => {
-      const m = L.marker([p.lat, p.lon]);
-      const html = `<strong>${p.tipo || "Sin tipo"}</strong><br/>Turno: ${p.turno || "-"}<br/>Fecha: ${formatDateTime(p.fecha)}<br/>Zona: ${p.zona || "-"}<br/>Direccion: ${p.direccion || "Sin registro"}`;
-      m.bindPopup(html);
-      clusterLayer.addLayer(m);
+  function applyLayerVisibility() {
+    setVisibility(["denuncias-heatmap"], layersState.heat);
+    setVisibility(["clusters", "cluster-count", "unclustered-point"], layersState.clusters);
+    setVisibility(["zones-fill", "zones-outline"], layersState.zones);
+  }
+
+  function setVisibility(ids, visible) {
+    if (!map) return;
+    ids.forEach((id) => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
     });
-    // No añadimos/quitamos la capa aquí, eso se controla con el toggle
   }
 
-  function updateZones(points) {
-    if (!zoneFeatures.length) return;
-    const counts = computeZoneCounts(points);
-    zonesLayer.eachLayer((layer) => {
-      const id = String(layer.feature?.properties?.id_zona || "");
-      const name = layer.feature?.properties?.nombre || (id ? `Zona ${id}` : "Zona");
-      const n = counts.get(id) || 0;
-      layer.bindTooltip(`${name} - Incidentes filtrados: ${n}`, { sticky: true });
+  function updateLayerButtons() {
+    document.querySelectorAll(".map-layer-button").forEach((btn) => {
+      const layerType = btn.getAttribute("data-layer");
+      btn.classList.toggle("active", Boolean(layersState[layerType]));
     });
-    // No añadimos/quitamos la capa aquí, eso se controla con el toggle
   }
 
-  function computeZoneCounts(points) {
-    const counts = new Map();
-    const polys = zoneFeatures.map((f) => ({ id: String(f.id_zona), geometries: normalizePolygons(getGeometry(f)) }));
-    points.forEach((p) => {
-      const lonlat = [p.lon, p.lat];
-      polys.forEach((poly) => { if (poly.geometries.some((g) => pointInPolygon(lonlat, g))) counts.set(poly.id, (counts.get(poly.id) || 0) + 1); });
-    });
-    return counts;
+  function pointsToGeoJson(points) {
+    return {
+      type: "FeatureCollection",
+      features: (points || [])
+        .filter((p) => Number.isFinite(Number(p.lon)) && Number.isFinite(Number(p.lat)))
+        .map((p) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [Number(p.lon), Number(p.lat)] },
+          properties: {
+            id: p.id,
+            peso: Number(p.peso || 1),
+            tipo: p.tipo || "",
+            turno: p.turno || "",
+            fecha: p.fecha || "",
+            zona: p.zona || "",
+            direccion: p.direccion || "",
+          },
+        })),
+    };
   }
 
-  function getGeometry(f) { if (!f || !f.geojson) return null; if (f.geojson.type === "Feature") return f.geojson.geometry; if (f.geojson.geometry) return f.geojson.geometry; return f.geojson; }
-  function normalizePolygons(geometry) {
-    if (!geometry) return [];
-    if (geometry.type === "Feature") return normalizePolygons(geometry.geometry);
-    if (geometry.type === "Polygon") return geometry.coordinates.map((ring) => ring.map(([lon, lat]) => [lon, lat]));
-    if (geometry.type === "MultiPolygon") return geometry.coordinates.map((poly) => (poly[0] || []).map(([lon, lat]) => [lon, lat]));
-    return [];
-  }
-  function pointInPolygon(point, polygon) {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i][0], yi = polygon[i][1];
-      const xj = polygon[j][0], yj = polygon[j][1];
-      const intersects = yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / ((yj - yi) || 1e-9) + xi;
-      if (intersects) inside = !inside;
-    }
-    return inside;
+  function zonesToGeoJson(zones) {
+    return {
+      type: "FeatureCollection",
+      features: (zones || []).map((zone) => {
+        const raw = zone.geojson || {};
+        if (raw.type === "Feature") {
+          return {
+            ...raw,
+            properties: { ...(raw.properties || {}), id_zona: zone.id_zona, nombre: zone.nombre },
+          };
+        }
+        return {
+          type: "Feature",
+          geometry: raw.geometry || raw,
+          properties: { id_zona: zone.id_zona, nombre: zone.nombre },
+        };
+      }),
+    };
   }
 
-  function updateIncidentCounter(count) { 
-    const el = document.getElementById("incident-count"); 
-    if (el) el.textContent = String(count); 
-  }
-  
-  function updateSummary(filters, count) {
-    const parts = [];
-    if (filters.desde) parts.push(`Desde ${filters.desde}`);
-    if (filters.hasta) parts.push(`Hasta ${filters.hasta}`);
-    if (filters.tipos?.length) parts.push(`Tipos: ${filters.tipos.join(", ")}`);
-    if (filters.turnos?.length) parts.push(`Turnos: ${filters.turnos.join(", ")}`);
-    if (filters.zonas?.length) parts.push(`Zonas: ${filters.zonas.join(", ")}`);
-    const message = parts.length ? `${parts.join(" · ")}` : `Sin filtros aplicados`;
-    showSummary(message, false);
-    updateIncidentCounter(count);
-  }
-  
-  function showSummary(message, isError) {
-    const alert = document.getElementById("filtros-resumen");
-    if (!alert) return; 
-    alert.textContent = message; 
+  function emptyFeatureCollection() {
+    return { type: "FeatureCollection", features: [] };
   }
 
   function populateSelect(elementId, values) {
@@ -318,80 +433,124 @@
     if (!select) return;
     select.innerHTML = "";
     const options = Array.isArray(values) ? values.map((v) => (typeof v === "object" ? v : { value: v, label: v })) : [];
-    options.forEach((opt) => { const o = document.createElement("option"); o.value = opt.value; o.textContent = opt.label; select.appendChild(o); });
+    options.forEach((opt) => {
+      const option = document.createElement("option");
+      option.value = opt.value;
+      option.textContent = opt.label;
+      select.appendChild(option);
+    });
   }
-  
-  function computeDefaultDates(range) { 
-    const today = range?.max ? new Date(range.max) : new Date(); 
-    const minDate = range?.min ? new Date(range.min) : null; 
-    const from = new Date(today); 
-    from.setDate(from.getDate() - 30); 
-    if (minDate && from < minDate) from.setTime(minDate.getTime()); 
-    return { desde: formatDate(from), hasta: formatDate(today) }; 
+
+  function collectFilters() {
+    return {
+      desde: document.getElementById("fecha-desde").value,
+      hasta: document.getElementById("fecha-hasta").value,
+      anio: document.getElementById("filtro-anio").value,
+      tipos: getSelectValues("tipo-denuncia"),
+      turnos: getSelectValues("turno"),
+      zonas: getSelectValues("zona"),
+    };
   }
-  
-  function restoreFilters() { 
-    const s = readFilters(); 
-    if (s.desde) document.getElementById("fecha-desde").value = s.desde; 
-    if (s.hasta) document.getElementById("fecha-hasta").value = s.hasta; 
-    if (s.anio) document.getElementById("filtro-anio").value = s.anio; 
-    setSelectValues("tipo-denuncia", s.tipos || []); 
-    setSelectValues("turno", s.turnos || []); 
-    setSelectValues("zona", s.zonas || []); 
-    return collectFilters(); 
+
+  function getSelectValues(id) {
+    return Array.from(document.getElementById(id).selectedOptions).map((o) => o.value);
   }
-  
-  function collectFilters() { 
-    return { 
-      desde: document.getElementById("fecha-desde").value, 
-      hasta: document.getElementById("fecha-hasta").value, 
-      anio: document.getElementById("filtro-anio").value, 
-      tipos: getSelectValues("tipo-denuncia"), 
-      turnos: getSelectValues("turno"), 
-      zonas: getSelectValues("zona") 
-    }; 
+
+  function setSelectValues(id, values) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const normalized = (values || []).map((v) => v.toString());
+    Array.from(el.options).forEach((o) => { o.selected = normalized.includes(o.value.toString()); });
   }
-  
-  function getSelectValues(id) { 
-    return Array.from(document.getElementById(id).selectedOptions).map((o) => o.value); 
+
+  function saveFilters(filters) {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
   }
-  
-  function setSelectValues(id, values) { 
-    const el = document.getElementById(id); 
-    const n = values.map((v) => v.toString()); 
-    Array.from(el.options).forEach((o) => (o.selected = n.includes(o.value.toString()))); 
+
+  function readFilters() {
+    try {
+      return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}");
+    } catch {
+      return {};
+    }
   }
-  
-  function saveFilters(f) { 
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(f)); 
+
+  function restoreFilters() {
+    const saved = readFilters();
+    if (saved.desde) document.getElementById("fecha-desde").value = saved.desde;
+    if (saved.hasta) document.getElementById("fecha-hasta").value = saved.hasta;
+    if (saved.anio) document.getElementById("filtro-anio").value = saved.anio;
+    setSelectValues("tipo-denuncia", saved.tipos || []);
+    setSelectValues("turno", saved.turnos || []);
+    setSelectValues("zona", saved.zonas || []);
+    return collectFilters();
   }
-  
-  function readFilters() { 
-    try { 
-      return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}"); 
-    } catch { 
-      return {}; 
-    } 
+
+  async function clearFilters() {
+    sessionStorage.removeItem(STORAGE_KEY);
+    await loadFilters();
+    const fresh = collectFilters();
+    await applyFilters(fresh);
   }
-  
-  async function clearFilters() { 
-    sessionStorage.removeItem(STORAGE_KEY); 
-    await loadFilters(); 
-    const fresh = collectFilters(); 
-    await applyFilters(fresh); 
+
+  function buildYears(range) {
+    const start = range?.min ? new Date(range.min).getFullYear() : 2020;
+    const end = range?.max ? new Date(range.max).getFullYear() : new Date().getFullYear();
+    const years = [];
+    for (let y = start; y <= end; y++) years.push({ value: y, label: y });
+    return years;
   }
-  
-  function formatDate(d) { 
-    const y = d.getFullYear(); 
-    const m = String(d.getMonth() + 1).padStart(2, "0"); 
-    const day = String(d.getDate()).padStart(2, "0"); 
-    return `${y}-${m}-${day}`; 
+
+  function computeDefaultDates(range) {
+    const today = range?.max ? new Date(range.max) : new Date();
+    const minDate = range?.min ? new Date(range.min) : null;
+    const from = new Date(today);
+    from.setDate(from.getDate() - 30);
+    if (minDate && from < minDate) from.setTime(minDate.getTime());
+    return { desde: formatDate(from), hasta: formatDate(today) };
   }
-  
-  function formatDateTime(v) { 
-    if (!v) return "-"; 
-    const d = new Date(v); 
-    return `${formatDate(d)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; 
+
+  function updateIncidentCounter(count) {
+    const el = document.getElementById("incident-count");
+    if (el) el.textContent = String(count);
+  }
+
+  function updateSummary(filters, count) {
+    const parts = [];
+    if (filters.anio) parts.push(`Año ${filters.anio}`);
+    if (filters.desde) parts.push(`Desde ${filters.desde}`);
+    if (filters.hasta) parts.push(`Hasta ${filters.hasta}`);
+    if (filters.tipos?.length) parts.push(`Tipos: ${filters.tipos.join(", ")}`);
+    if (filters.turnos?.length) parts.push(`Turnos: ${filters.turnos.join(", ")}`);
+    if (filters.zonas?.length) parts.push(`Zonas: ${filters.zonas.join(", ")}`);
+    const message = parts.length ? `${parts.join(" · ")}` : "Sin filtros aplicados";
+    showSummary(`${message} · ${count} visibles`, false);
+  }
+
+  function showSummary(message, isError) {
+    const el = document.getElementById("filtros-resumen");
+    if (!el) return;
+    el.textContent = message;
+    el.classList.toggle("text-danger", Boolean(isError));
+  }
+
+  function showTokenWarning() {
+    const warning = document.getElementById("map-token-warning");
+    if (warning) warning.hidden = false;
+  }
+
+  function formatDate(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return `${formatDate(date)} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   }
 })();
 
@@ -399,6 +558,7 @@ function buildQueryString(filters) {
   const params = new URLSearchParams();
   if (filters.desde) params.set("desde", filters.desde);
   if (filters.hasta) params.set("hasta", filters.hasta);
+  if (filters.anio) params.set("anio", filters.anio);
   if (filters.tipos?.length) params.set("tipo", filters.tipos.join(","));
   if (filters.turnos?.length) params.set("turno", filters.turnos.join(","));
   if (filters.zonas?.length) params.set("zona", filters.zonas.join(","));

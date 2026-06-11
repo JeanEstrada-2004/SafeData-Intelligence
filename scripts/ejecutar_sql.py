@@ -44,7 +44,7 @@ def main(path: str) -> None:
     if not sql_path.exists():
         raise SystemExit(f"SQL file not found: {sql_path}")
 
-    sql_text = sql_path.read_text(encoding="utf-8")
+    sql_text = sql_path.read_text(encoding="utf-8-sig")
     stmts = list(iter_statements(sql_text))
     print(f"Executing {len(stmts)} statements from {sql_path}...")
 

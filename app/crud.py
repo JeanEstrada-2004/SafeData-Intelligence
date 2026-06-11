@@ -197,6 +197,10 @@ def _last_n_months(n: int, ref: date | None = None):
         months.append(date(yy, mm, 1))
     return months  # [date(YYYY,MM,01), ...]
 
+def _dashboard_reference_date(db: Session) -> date:
+    latest = db.query(func.max(models.Denuncia.fecha_hora_suceso)).scalar()
+    return latest.date() if latest else date.today()
+
 def _seconds(expr):
     return func.extract("epoch", expr)  # timedelta -> seconds
 
@@ -205,7 +209,7 @@ def _percentile(p: float, expr):
     return func.percentile_cont(p).within_group(expr)  # PostgreSQL
 
 def get_mes_labels_counts_12m(db: Session):
-    meses = _last_n_months(12)
+    meses = _last_n_months(12, _dashboard_reference_date(db))
     ini = meses[0]
     prox = date(meses[-1].year + (1 if meses[-1].month == 12 else 0),
                 1 if meses[-1].month == 12 else meses[-1].month + 1,
@@ -225,7 +229,7 @@ def get_mes_labels_counts_12m(db: Session):
     return labels, counts
 
 def get_estados_por_mes_6m(db: Session):
-    meses = _last_n_months(6)
+    meses = _last_n_months(6, _dashboard_reference_date(db))
     ini = meses[0]
     prox = date(meses[-1].year + (1 if meses[-1].month == 12 else 0),
                 1 if meses[-1].month == 12 else meses[-1].month + 1,

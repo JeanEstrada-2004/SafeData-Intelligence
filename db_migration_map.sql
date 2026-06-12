@@ -1,16 +1,14 @@
 -- Migración para el módulo de mapa de calor
+-- Complemento a 005_geo_quality.sql para completar tabla de soporte y mejoras
 -- Notas (2025-11):
---  - Extiende la tabla existente `denuncias` con columnas de geocodificación.
---  - Crea tablas de apoyo (`geocode_cache`, `zonas`) y sus índices.
+--  - Asegura que existan tablas de apoyo (`geocode_cache`, `zonas`) e índices
+--  - Las columnas de denuncias ya están creadas en 005_geo_quality.sql
 
-ALTER TABLE denuncias
-  ADD COLUMN IF NOT EXISTS latitud DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS longitud DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS geocode_status VARCHAR(20) DEFAULT 'pending',
-  ADD COLUMN IF NOT EXISTS geocode_precision VARCHAR(20),
-  ADD COLUMN IF NOT EXISTS geocoded_at TIMESTAMP,
-  ADD COLUMN IF NOT EXISTS peso NUMERIC(3,2) DEFAULT 1.00;
+-- Agregar columna geo_method si no existe (puede faltar en algunas versiones)
+ALTER TABLE IF EXISTS denuncias
+  ADD COLUMN IF NOT EXISTS geo_method VARCHAR(20);
 
+-- Crear tablas de soporte si no existen
 CREATE TABLE IF NOT EXISTS geocode_cache (
   direccion TEXT PRIMARY KEY,
   latitud DOUBLE PRECISION,
@@ -28,8 +26,10 @@ CREATE TABLE IF NOT EXISTS zonas (
   centroid_lon DOUBLE PRECISION NOT NULL
 );
 
+-- Crear índices necesarios para rendimiento
 CREATE INDEX IF NOT EXISTS idx_denuncias_fecha ON denuncias (fecha_hora_suceso);
 CREATE INDEX IF NOT EXISTS idx_denuncias_tipo  ON denuncias (tipo_denuncia);
 CREATE INDEX IF NOT EXISTS idx_denuncias_turno ON denuncias (turno);
 CREATE INDEX IF NOT EXISTS idx_denuncias_zona  ON denuncias (zona_denuncia);
 CREATE INDEX IF NOT EXISTS idx_denuncias_latlon ON denuncias (latitud, longitud);
+CREATE INDEX IF NOT EXISTS idx_denuncias_geocode_status ON denuncias (geocode_status);

@@ -24,7 +24,7 @@
       <label class="form-label">Rol</label>
       <select name="role" class="form-select">
         <option value="">Todos</option>
-        {% for r in ['Gerente','JefeOperaciones','Analista','EncargadoSipCop'] %}
+        {% for r in ['Gerente','JefeOperaciones','Analista','EncargadoSipCop','OTICS','AdministradorTecnico'] %}
         <option value="{{ r }}" {% if role == r %}selected{% endif %}>{{ r }}</option>
         {% endfor %}
       </select>
@@ -44,6 +44,17 @@
     </div>
   </form>
 
+  {% if message %}
+  <div class="alert alert-success">
+    <i class="fa-solid fa-circle-check me-2"></i>{{ message }}
+  </div>
+  {% endif %}
+  {% if error %}
+  <div class="alert alert-danger">
+    <i class="fa-solid fa-triangle-exclamation me-2"></i>{{ error }}
+  </div>
+  {% endif %}
+
   <div class="table-responsive">
     <table class="table table-hover align-middle sd-table mb-0">
       <thead>
@@ -52,6 +63,7 @@
           <th>Nombre</th>
           <th>Rol</th>
           <th>Estado</th>
+          <th>Ultimo acceso</th>
           <th class="text-end">Acciones</th>
         </tr>
       </thead>
@@ -68,6 +80,9 @@
             <span class="badge-soft">Inactivo</span>
             {% endif %}
           </td>
+          <td class="text-nowrap text-muted">
+            {{ last_access.get(u.id).strftime('%Y-%m-%d %H:%M') if last_access.get(u.id) else '-' }}
+          </td>
           <td class="text-end">
             <a class="btn btn-icon btn-soft" href="/admin/users/{{ u.id }}/edit" title="Editar">
               <i class="fa-solid fa-pen"></i>
@@ -81,7 +96,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="5" class="text-center text-muted py-4">No hay usuarios para los filtros seleccionados.</td>
+          <td colspan="6" class="text-center text-muted py-4">No hay usuarios para los filtros seleccionados.</td>
         </tr>
         {% endfor %}
       </tbody>

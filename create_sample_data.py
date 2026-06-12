@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Script para crear datos de ejemplo en la base de datos
+⚠️ NOTA: Este script está DESACTUALIZADO
+Usa columnas antiguas que no corresponden al modelo actual de Denuncia.
+Para crear datos de ejemplo, carga un archivo Excel mediante la interfaz web.
+
+Script para crear datos de ejemplo en la base de datos (DESACTUALIZDO - NO USAR)
 """
 
 import sys

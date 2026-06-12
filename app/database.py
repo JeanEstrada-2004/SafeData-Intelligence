@@ -9,11 +9,11 @@ load_dotenv()
 # 1) Si hay DATABASE_URL completa en el entorno, úsala tal cual.
 DATABASE_URL_ENV = os.getenv("DATABASE_URL", "").strip()
 
-DB_HOST = os.getenv("DB_HOST", "dpg-d42p5np5pdvs73da3i2g-a.oregon-postgres.render.com").strip()
+DB_HOST = os.getenv("DB_HOST", "localhost").strip()
 DB_PORT = os.getenv("DB_PORT", "5432").strip()
 DB_NAME = os.getenv("DB_NAME", "denuncias_db").strip()
-DB_USER = os.getenv("DB_USER", "denuncias_db_user").strip()
-DB_PASS = os.getenv("DB_PASS", "U25F3n8UmYoghcKe6cR7La3AEh55OaZf").strip()
+DB_USER = os.getenv("DB_USER", "postgres").strip()
+DB_PASS = os.getenv("DB_PASS", "").strip()
 
 def _is_local(host: str) -> bool:
     h = (host or "").lower()
@@ -25,7 +25,8 @@ def _build_url() -> str:
         return DATABASE_URL_ENV
 
     # Construye a partir de partes. Agrega sslmode=require SOLO si no es local.
-    base = f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    auth = DB_USER if not DB_PASS else f"{DB_USER}:{DB_PASS}"
+    base = f"postgresql+psycopg2://{auth}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     if _is_local(DB_HOST):
         return base  # sin SSL
     return base + "?sslmode=require"  # Render u otros remotos

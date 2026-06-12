@@ -5,7 +5,7 @@
 
 {% block styles %}
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/mapa_calor.css?v=20260611-4">
+<link rel="stylesheet" href="/static/css/mapa_calor.css?v=20260611-9">
 {% endblock %}
 
 {% block content %}
@@ -22,6 +22,7 @@
     </div>
 
     <div class="map-panel-body">
+      <div class="map-section-label"><span>Periodo</span></div>
       <div class="map-filter-group">
         <label for="filtro-anio">Año</label>
         <select id="filtro-anio" class="form-select">
@@ -31,25 +32,32 @@
       <div class="map-filter-grid">
         <div class="map-filter-group">
           <label for="fecha-desde">Desde</label>
-          <input type="date" id="fecha-desde" class="form-control" />
+          <input type="date" id="fecha-desde" class="form-control">
         </div>
         <div class="map-filter-group">
           <label for="fecha-hasta">Hasta</label>
-          <input type="date" id="fecha-hasta" class="form-control" />
+          <input type="date" id="fecha-hasta" class="form-control">
         </div>
       </div>
+
+      <div class="map-section-label"><span>Incidente</span></div>
       <div class="map-filter-group">
         <label for="tipo-denuncia">Tipo de denuncia</label>
-        <select id="tipo-denuncia" class="form-select" multiple></select>
+        <select id="tipo-denuncia" class="form-select native-filter-select" multiple></select>
+        <div id="tipo-denuncia-cards" class="choice-strip" data-target="tipo-denuncia"></div>
       </div>
+
+      <div class="map-section-label"><span>Segmentación</span></div>
       <div class="map-filter-grid">
         <div class="map-filter-group">
           <label for="turno">Turno</label>
-          <select id="turno" class="form-select" multiple></select>
+          <select id="turno" class="form-select native-filter-select" multiple></select>
+          <div id="turno-cards" class="choice-strip choice-strip-compact" data-target="turno"></div>
         </div>
         <div class="map-filter-group">
           <label for="zona">Zona</label>
-          <select id="zona" class="form-select" multiple></select>
+          <select id="zona" class="form-select native-filter-select" multiple></select>
+          <div id="zona-cards" class="choice-strip choice-strip-compact" data-target="zona"></div>
         </div>
       </div>
 
@@ -57,20 +65,30 @@
         <button id="aplicar-filtros" class="btn btn-primary" type="button">
           <i class="fa-solid fa-filter me-2"></i>Aplicar
         </button>
-        <button id="limpiar-filtros" class="btn btn-secondary" type="button">Limpiar</button>
-        <button id="descargar-csv" class="btn btn-outline-primary" type="button">CSV</button>
+        <button id="limpiar-filtros" class="btn btn-secondary" type="button">
+          <i class="fa-solid fa-rotate-right me-2"></i>Limpiar
+        </button>
+        <button id="descargar-csv" class="btn btn-outline-primary" type="button">
+          <i class="fa-solid fa-download me-2"></i>CSV
+        </button>
       </div>
 
       <div class="map-layers">
-        <div class="map-layer-title">Capas</div>
+        <div class="map-layer-title">Capas visibles</div>
         <button id="toggle-heat" class="map-layer-button active" data-layer="heat" type="button">
-          <span class="layer-dot heat"></span>Heatmap
+          <span class="layer-glyph heat"></span>
+          <span class="layer-copy"><strong>Heatmap</strong><small>Intensidad de incidentes</small></span>
+          <span class="layer-switch"></span>
         </button>
         <button id="toggle-clusters" class="map-layer-button active" data-layer="clusters" type="button">
-          <span class="layer-dot cluster"></span>Clusters
+          <span class="layer-glyph cluster"></span>
+          <span class="layer-copy"><strong>Clusters</strong><small>Agrupación de incidentes</small></span>
+          <span class="layer-switch"></span>
         </button>
         <button id="toggle-zonas" class="map-layer-button active" data-layer="zones" type="button">
-          <span class="layer-dot zone"></span>Zonas
+          <span class="layer-glyph zone"></span>
+          <span class="layer-copy"><strong>Zonas</strong><small>Límites operativos</small></span>
+          <span class="layer-switch"></span>
         </button>
       </div>
     </div>
@@ -78,6 +96,8 @@
 
   <div class="map-stage">
     <div id="map"></div>
+    <div class="map-tone" aria-hidden="true"></div>
+
     <div id="map-token-warning" class="map-token-warning" hidden>
       <i class="fa-solid fa-key"></i>
       <div>
@@ -87,17 +107,25 @@
     </div>
 
     <div class="map-hud">
-      <div>
-        <span class="hud-label">Incidentes visibles</span>
-        <strong id="incident-count">0</strong>
+      <div class="hud-main">
+        <span class="hud-icon"><i class="fa-solid fa-location-crosshairs"></i></span>
+        <div>
+          <span class="hud-label">Incidentes visibles</span>
+          <strong id="incident-count">0</strong>
+        </div>
       </div>
-      <div id="filtros-resumen" class="hud-summary">Sin filtros aplicados</div>
+      <div class="hud-details">
+        <div><span>Periodo</span><strong id="hud-periodo">Sin filtros</strong></div>
+        <div><span>Zona</span><strong id="hud-zona">Todas las zonas</strong></div>
+        <div><span>Capas activas</span><strong id="hud-capas">Heatmap · Clusters · Zonas</strong></div>
+        <div><span>Resumen</span><strong id="filtros-resumen">Sin filtros aplicados</strong></div>
+      </div>
     </div>
 
     <div class="map-legend">
-      <span>Baja</span>
+      <strong>Intensidad</strong>
       <div class="legend-gradient"></div>
-      <span>Alta</span>
+      <div class="legend-scale"><span>Baja</span><span>Alta</span></div>
     </div>
   </div>
 </div>
@@ -108,5 +136,5 @@
   window.SAFEDATA_MAPBOX_TOKEN = {{ mapbox_token | tojson }};
 </script>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
-<script src="/static/js/mapa_calor.js?v=20260611-4"></script>
+<script src="/static/js/mapa_calor.js?v=20260611-9"></script>
 {% endblock %}

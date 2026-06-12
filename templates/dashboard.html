@@ -19,6 +19,65 @@
   </div>
 </div>
 
+<form class="compact-filter mb-3" method="get">
+  <div>
+    <label class="form-label">Desde</label>
+    <input class="form-control" type="date" name="desde" value="{{ filters.desde }}">
+  </div>
+  <div>
+    <label class="form-label">Hasta</label>
+    <input class="form-control" type="date" name="hasta" value="{{ filters.hasta }}">
+  </div>
+  <div>
+    <label class="form-label">Zona</label>
+    <select class="form-select" name="zona">
+      <option value="">Todas</option>
+      {% for z in range(1, 8) %}
+      <option value="{{ z }}" {% if filters.zona == z %}selected{% endif %}>Zona {{ z }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="form-label">Turno</label>
+    <select class="form-select" name="turno">
+      <option value="">Todos</option>
+      {% for t in turnos_unicos %}
+      <option value="{{ t }}" {% if filters.turno == t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="form-label">Tipo</label>
+    <select class="form-select" name="tipo">
+      <option value="">Todos</option>
+      {% for t in tipos_unicos %}
+      <option value="{{ t }}" {% if filters.tipo == t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="form-label">Estado</label>
+    <select class="form-select" name="estado">
+      <option value="">Todos</option>
+      {% for e in estados_unicos %}
+      <option value="{{ e }}" {% if filters.estado == e %}selected{% endif %}>{{ e }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="form-label">Busqueda</label>
+    <input class="form-control" type="text" name="q" value="{{ filters.q }}" placeholder="Parte, tipo o lugar">
+  </div>
+  <div class="d-flex gap-2 align-items-end">
+    <button class="btn btn-primary flex-fill" type="submit">
+      <i class="fa-solid fa-filter me-2"></i>Aplicar
+    </button>
+    <a class="btn btn-outline-secondary" href="/">
+      <i class="fa-solid fa-xmark"></i>
+    </a>
+  </div>
+</form>
+
 <div class="row g-3">
   <div class="col-xl-3 col-md-6">
     <div class="card kpi-card h-100">
@@ -66,6 +125,33 @@
         </div>
         <span class="kpi-icon"><i class="fas fa-gauge-high"></i></span>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-tile">
+      <div class="label">Geocodificados</div>
+      <div class="value"><span id="kpiGeoPct">-</span><small class="fs-6 text-muted">%</small></div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-tile">
+      <div class="label">Sin coordenadas</div>
+      <div class="value" id="kpiSinCoord">-</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-tile">
+      <div class="label">Cargas procesadas</div>
+      <div class="value" id="kpiCargas">-</div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="metric-tile">
+      <div class="label">Filas rechazadas</div>
+      <div class="value"><span id="kpiRejectedPct">-</span><small class="fs-6 text-muted">%</small></div>
     </div>
   </div>
 </div>
@@ -216,7 +302,7 @@
   };
   const chartColors = ['#0f766e','#0e8fa3','#24527a','#b7791f','#b4232a','#475569','#166f4d','#64748b'];
 
-  const res = await fetch('/api/denuncias/stats-advanced');
+  const res = await fetch('/api/denuncias/stats-advanced' + window.location.search);
   const data = await res.json();
 
   Chart.defaults.font.family = 'Inter, Segoe UI, Arial, sans-serif';
@@ -239,6 +325,11 @@
   document.getElementById('kpiSLA').textContent = kpis.sla_pct ?? 0;
   document.getElementById('kpiP50').textContent = Math.round((kpis.reaccion_mediana || 0) / 60);
   document.getElementById('kpiP90').textContent = Math.round((kpis.reaccion_p90 || 0) / 60);
+  const calidad = data.calidad || {};
+  document.getElementById('kpiGeoPct').textContent = calidad.geocodificados_pct ?? 0;
+  document.getElementById('kpiSinCoord').textContent = calidad.sin_coordenadas ?? 0;
+  document.getElementById('kpiCargas').textContent = calidad.cargas_procesadas ?? 0;
+  document.getElementById('kpiRejectedPct').textContent = calidad.filas_rechazadas_pct ?? 0;
 
   const turnos = data.por_turno || {};
   const turnoValue = (...keys) => keys.reduce((acc, key) => acc ?? turnos[key], undefined) ?? 0;

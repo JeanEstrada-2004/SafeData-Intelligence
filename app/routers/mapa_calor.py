@@ -10,52 +10,23 @@ from __future__ import annotations
 import csv
 import io
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, extract
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Denuncia, Zona
+from ..models import Denuncia, User, Zona
 from ..schemas import MapDateRange, MapFilters, MapPoint, ZoneFeature
+from ..utils.seguridad import audit_event, require_roles
 
 LOGGER = logging.getLogger("app.routers.mapa_calor")
 # Permiten acceder al módulo de Mapa de Calor
 ALLOWED_ROLES = ("Gerente", "JefeOperaciones", "Analista", "EncargadoSipCop")
-
-
-@dataclass
-class User:
-    """Representación mínima del usuario autenticado."""
-
-    id: int
-    username: str
-    role: str
-
-
-def get_current_user() -> User:
-    """Stub de autenticación para entornos sin módulo de seguridad."""
-
-    return User(id=1, username="demo", role="Analista")
-
-
-def require_roles(*roles: str):
-    """Valida que el usuario posea alguno de los roles permitidos.
-
-    En produccion, reemplazar get_current_user por la dependencia real.
-    """
-
-    def _dependency(user: User = Depends(get_current_user)) -> User:
-        if user.role not in roles:
-            raise HTTPException(status_code=403, detail="Permisos insuficientes para acceder al mapa")
-        return user
-
-    return _dependency
 
 
 def _parse_csv_param(value: Optional[str]) -> List[str]:
@@ -150,6 +121,9 @@ def _denuncia_to_point(denuncia: Denuncia) -> MapPoint:
         fecha=fecha_value,
         zona=denuncia.zona_denuncia,
         direccion=denuncia.direccion_ocurrencia,
+        geocode_status=denuncia.geocode_status,
+        geocode_precision=denuncia.geocode_precision,
+        geo_method=denuncia.geo_method,
     )
 
 
@@ -210,7 +184,7 @@ def get_filters(
     filters_summary = _build_filters_summary({"tipos": tipos, "turnos": turnos, "zonas": zonas})
     LOGGER.info(
         "user=%s role=%s endpoint=/filters filters=%s",
-        user.username,
+        user.email,
         user.role,
         filters_summary,
     )
@@ -237,7 +211,7 @@ def get_points(
     )
     LOGGER.info(
         "user=%s role=%s endpoint=/points filters=%s count=%s",
-        user.username,
+        user.email,
         user.role,
         filters_summary,
         len(puntos),
@@ -265,7 +239,7 @@ def get_zones(
 
     LOGGER.info(
         "user=%s role=%s endpoint=/zones count=%s",
-        user.username,
+        user.email,
         user.role,
         len(payload),
     )
@@ -275,6 +249,7 @@ def get_zones(
 
 @router.get("/points.csv", response_class=StreamingResponse)
 def download_points_csv(
+    request: Request,
     desde: Optional[str] = Query(None),
     hasta: Optional[str] = Query(None),
     tipo: Optional[str] = Query(None),
@@ -314,11 +289,12 @@ def download_points_csv(
     )
     LOGGER.info(
         "user=%s role=%s endpoint=/points.csv filters=%s count=%s",
-        user.username,
+        user.email,
         user.role,
         filters_summary,
         len(denuncias),
     )
 
     headers = {"Content-Disposition": "attachment; filename=incidentes_filtrados.csv"}
+    audit_event(db, request, "export_map_points_csv", user=user, detail={"count": len(denuncias), "filters": filters_summary})
     return StreamingResponse(output, media_type="text/csv", headers=headers)

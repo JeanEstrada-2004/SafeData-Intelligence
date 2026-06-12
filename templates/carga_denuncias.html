@@ -56,6 +56,7 @@
 
         <div id="resultContainer" class="mt-3" style="display: none;">
           <div id="resultAlert"></div>
+          <div id="uploadSummary" class="mt-3"></div>
         </div>
       </div>
     </div>
@@ -133,7 +134,10 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     const result = await response.json();
 
     if (response.ok) {
-      showSuccessModal(result.message || 'Archivo procesado con éxito');
+      showUploadSummary(result);
+      if ((result.rejected_rows || 0) === 0) {
+        showSuccessModal(result.message || 'Archivo procesado con éxito');
+      }
     } else {
       showAlert(result.detail || 'Error al procesar el archivo', 'danger');
     }
@@ -163,6 +167,7 @@ function showAlert(message, type) {
 function resetForm() {
   document.getElementById('uploadForm').reset();
   document.getElementById('resultContainer').style.display = 'none';
+  document.getElementById('uploadSummary').innerHTML = '';
   document.getElementById('progressContainer').style.display = 'none';
 }
 
@@ -190,6 +195,62 @@ function showSuccessModal(message) {
   setTimeout(() => {
     window.location.href = '/listado-denuncias';
   }, 3000);
+}
+
+function showUploadSummary(result) {
+  showAlert(result.message || 'Carga procesada.', result.rejected_rows ? 'warning' : 'success');
+  const container = document.getElementById('uploadSummary');
+  const batchId = result.batch_id;
+  container.innerHTML = `
+    <div class="card border-0 bg-light">
+      <div class="card-body">
+        <div class="row g-2 text-center">
+          <div class="col-4"><div class="fw-bold fs-5">${result.total_rows ?? 0}</div><div class="small text-muted">Filas</div></div>
+          <div class="col-4"><div class="fw-bold fs-5 text-success">${result.accepted_rows ?? 0}</div><div class="small text-muted">Aceptadas</div></div>
+          <div class="col-4"><div class="fw-bold fs-5 text-danger">${result.rejected_rows ?? 0}</div><div class="small text-muted">Rechazadas</div></div>
+        </div>
+        ${batchId ? `
+        <div class="d-flex flex-wrap gap-2 justify-content-end mt-3">
+          <button class="btn btn-outline-secondary btn-sm" type="button" onclick="loadUploadErrors(${batchId})">
+            <i class="fas fa-list me-1"></i>Ver errores
+          </button>
+          <a class="btn btn-outline-primary btn-sm" href="${result.errors_csv_url || `/api/denuncias/uploads/${batchId}/errors.csv`}">
+            <i class="fas fa-file-csv me-1"></i>Errores CSV
+          </a>
+          <a class="btn btn-outline-primary btn-sm" href="${result.errors_excel_url || `/api/denuncias/uploads/${batchId}/errors.xlsx`}">
+            <i class="fas fa-file-excel me-1"></i>Errores Excel
+          </a>
+        </div>
+        <div id="uploadErrorsTable" class="table-responsive mt-3"></div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+async function loadUploadErrors(batchId) {
+  const target = document.getElementById('uploadErrorsTable');
+  target.innerHTML = '<div class="text-muted small">Cargando errores...</div>';
+  const response = await fetch(`/api/denuncias/uploads/${batchId}/errors`);
+  const rows = await response.json();
+  if (!rows.length) {
+    target.innerHTML = '<div class="text-muted small">No hay errores ni advertencias registradas para este lote.</div>';
+    return;
+  }
+  target.innerHTML = `
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Fila</th><th>Columna</th><th>Severidad</th><th>Mensaje</th></tr></thead>
+      <tbody>
+        ${rows.slice(0, 50).map(r => `
+          <tr>
+            <td>${r.row_number}</td>
+            <td>${r.column_name || '-'}</td>
+            <td><span class="badge ${r.severity === 'error' ? 'text-bg-danger' : 'text-bg-warning'}">${r.severity}</span></td>
+            <td>${r.error_message}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    ${rows.length > 50 ? `<div class="small text-muted mt-2">Mostrando 50 de ${rows.length}. Descarga el archivo para ver todos.</div>` : ''}
+  `;
 }
 </script>
 {% endblock %}

@@ -1,7 +1,18 @@
+"""
+⚠️ NOTA: Este script está DESACTUALIZADO
+Usa columnas antiguas que no corresponden al modelo actual de Denuncia.
+Para generar datos de prueba actualizados, usa un Excel con las columnas:
+numero_parte, estado_denuncia, zona_denuncia, origen_denuncia, naturaleza_personal,
+forma_patrullaje, turno, fecha_hora_suceso, fecha_hora_alerta, fecha_hora_llegada,
+edad_victima, sexo_victima, distrito_victima, sexo_victimario, 
+relacion_victima_victimario, tipo_denuncia, arma_instrumento, resultado_ocurrencia,
+lugar_ocurrencia, direccion_ocurrencia, comentarios
+"""
+
 import pandas as pd
 from datetime import datetime
 
-# Datos de ejemplo para el archivo Excel
+# Datos de ejemplo para el archivo Excel (DESACTUALIZADOS - no usar)
 datos_ejemplo = [
     {
         'fecha_registro': '2024-01-15',

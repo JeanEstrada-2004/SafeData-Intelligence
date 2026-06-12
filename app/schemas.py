@@ -55,6 +55,7 @@ class MapFilters(BaseModel):
     turnos: List[str]
     zonas: List[int]
     fecha: MapDateRange
+    anios: List[int] = []
 
 class MapPoint(BaseModel):
     """Representa un incidente proyectado en el mapa."""
@@ -68,6 +69,9 @@ class MapPoint(BaseModel):
     fecha: datetime
     zona: Optional[int] = None
     direccion: Optional[str] = None
+    geocode_status: Optional[str] = None
+    geocode_precision: Optional[str] = None
+    geo_method: Optional[str] = None
 
     class Config:
         from_attributes = True

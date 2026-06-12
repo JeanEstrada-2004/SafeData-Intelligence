@@ -1,5 +1,7 @@
 ﻿"""Punto de entrada principal de la aplicaciÃ³n FastAPI."""
+import logging
 import os
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -14,13 +16,22 @@ from .routers import mapa_calor as mapa_calor_router
 from .routers import autenticacion as auth_router
 from .routers import admin_usuarios as admin_users_router
 from .routers import prediccion_ia as prediccion_router
+from .routers import catalogos as catalogos_router
+from .routers import auditoria as auditoria_router
 from .utils.seguridad import try_get_current_user, require_roles
 
 # Crea tablas (no borra nada; si estÃ¡n creadas, no hace cambios)
 models.Base.metadata.create_all(bind=engine)
 
-# Modo debug para ver el traceback completo en el navegador
-app = FastAPI(title="Sistema de Denuncias Ciudadanas", version="1.0.0", debug=True)
+APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+APP_DEBUG = os.getenv("APP_DEBUG", "true" if APP_ENV != "production" else "false").lower() in {"1", "true", "yes", "y"}
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
+app = FastAPI(title="Sistema de Denuncias Ciudadanas", version="1.0.0", debug=APP_DEBUG)
 
 # Static & templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -32,6 +43,8 @@ app.include_router(mapa_calor_router.router, prefix="/api/map", tags=["mapa-calo
 app.include_router(prediccion_router.router, prefix="/api/prediccion", tags=["prediccion-ia"])
 app.include_router(auth_router.router)
 app.include_router(admin_users_router.router)
+app.include_router(catalogos_router.router)
+app.include_router(auditoria_router.router)
 
 # Middleware para inyectar usuario actual en request.state (para plantillas)
 @app.middleware("http")
@@ -49,6 +62,25 @@ async def inject_current_user(request, call_next):
         request.state.current_user = None
     response = await call_next(request)
     return response
+
+
+@app.middleware("http")
+async def same_origin_guard(request: Request, call_next):
+    """Basic CSRF mitigation for cookie-authenticated unsafe requests."""
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("access_token"):
+        origin = request.headers.get("origin")
+        referer = request.headers.get("referer")
+        expected_host = request.url.netloc
+        candidate = origin or referer
+        if candidate:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(candidate)
+            if parsed.netloc and parsed.netloc != expected_host:
+                from fastapi.responses import PlainTextResponse
+
+                return PlainTextResponse("Solicitud rechazada por validación de origen.", status_code=403)
+    return await call_next(request)
 
 # ---------------------------
 # Helpers (compat & serialize)
@@ -92,7 +124,17 @@ def _serialize_denuncia(d) -> dict:
 
 
 @app.get("/", response_class=HTMLResponse)
-def dashboard(request: Request, db: Session = Depends(get_db)):
+def dashboard(
+    request: Request,
+    db: Session = Depends(get_db),
+    zona: int | None = None,
+    tipo: str | None = None,
+    turno: str | None = None,
+    estado: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    q: str | None = None,
+):
     # Si no hay usuario autenticado, redirige a /login
     if not getattr(request.state, "current_user", None):
         from fastapi.responses import RedirectResponse
@@ -101,6 +143,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     """Renderiza el panel principal con estadÃ­sticas agregadas."""
 
     stats = crud.get_dashboard_stats(db)
+    tipos_all = sorted({x[0] for x in db.query(models.Denuncia.tipo_denuncia).distinct().all() if x[0]})
+    turnos_all = sorted({x[0] for x in db.query(models.Denuncia.turno).distinct().all() if x[0]})
+    estados_all = sorted({x[0] for x in db.query(models.Denuncia.estado_denuncia).distinct().all() if x[0]})
 
     stats_ctx = {
         "total_denuncias": stats.total_denuncias,
@@ -117,7 +162,15 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "stats": stats_ctx, "stats_json": stats.model_dump()},
+        {
+            "request": request,
+            "stats": stats_ctx,
+            "stats_json": stats.model_dump(),
+            "filters": {"zona": zona, "tipo": tipo or "", "turno": turno or "", "estado": estado or "", "desde": desde or "", "hasta": hasta or "", "q": q or ""},
+            "tipos_unicos": tipos_all,
+            "turnos_unicos": turnos_all,
+            "estados_unicos": estados_all,
+        },
     )
 
 
@@ -127,21 +180,46 @@ def carga_denuncias(request: Request, _auth=Depends(require_roles("Gerente", "En
 
 
 @app.get("/listado-denuncias", response_class=HTMLResponse)
-def listado_denuncias(request: Request, db: Session = Depends(get_db), _auth=Depends(require_roles("Gerente", "JefeOperaciones", "EncargadoSipCop"))):
-    """PÃ¡gina de listado que delega la renderizaciÃ³n de filas al navegador."""
+def listado_denuncias(
+    request: Request,
+    db: Session = Depends(get_db),
+    zona: int | None = None,
+    tipo: str | None = None,
+    turno: str | None = None,
+    estado: str | None = None,
+    desde: str | None = None,
+    hasta: str | None = None,
+    q: str | None = None,
+    page: int = 1,
+    _auth=Depends(require_roles("Gerente", "JefeOperaciones", "EncargadoSipCop")),
+):
+    """Listado server-side con filtros y paginación."""
 
-    items = crud.listar_denuncias(db, limit=1000)
+    per_page = 15
+    page = max(1, int(page or 1))
+    filters = {"zona": zona, "tipo": tipo, "turno": turno, "estado": estado, "desde": desde, "hasta": hasta, "q": q}
+    total = crud.contar_denuncias(db, **filters)
+    items = crud.listar_denuncias(db, limit=per_page, offset=(page - 1) * per_page, **filters)
     tipos_unicos = sorted({x.tipo_denuncia for x in items if x.tipo_denuncia})
     turnos_unicos = sorted({x.turno for x in items if x.turno})
+    estados_unicos = sorted({x.estado_denuncia for x in db.query(models.Denuncia.estado_denuncia).distinct().all() if x.estado_denuncia})
+    tipos_all = sorted({x.tipo_denuncia for x in db.query(models.Denuncia.tipo_denuncia).distinct().all() if x.tipo_denuncia})
+    turnos_all = sorted({x.turno for x in db.query(models.Denuncia.turno).distinct().all() if x.turno})
 
     return templates.TemplateResponse(
         "listado_denuncias.html",
         {
             "request": request,
-            "denuncias": [],
+            "denuncias": items,
             "denuncias_json": [_serialize_denuncia(x) for x in items],
-            "tipos_unicos": tipos_unicos,
-            "turnos_unicos": turnos_unicos,
+            "tipos_unicos": tipos_all or tipos_unicos,
+            "turnos_unicos": turnos_all or turnos_unicos,
+            "estados_unicos": estados_unicos,
+            "filters": filters,
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": max(1, (total + per_page - 1) // per_page),
         },
     )
 
@@ -191,8 +269,15 @@ def mapa_calor_page(request: Request, _auth=Depends(require_roles("Gerente", "Je
 # ---------------------------
 
 
+@app.get("/health")
+def health():
+    """Healthcheck público mínimo, sin detalles sensibles."""
+
+    return {"ok": True, "app": "SafeData Intelligence", "version": app.version}
+
+
 @app.get("/health/db")
-def health_db():
+def health_db(_auth=Depends(require_roles("Gerente", "AdministradorTecnico", "OTICS"))):
     """ConexiÃ³n directa al motor (sin sesión) + COUNT(*)."""
 
     info = quick_db_check()
@@ -200,17 +285,33 @@ def health_db():
 
 
 @app.get("/health/stats")
-def health_stats(db: Session = Depends(get_db)):
+def health_stats(db: Session = Depends(get_db), _auth=Depends(require_roles("Gerente", "AdministradorTecnico", "OTICS"))):
     """Verifica que el CRUD de estadÃ­sticas funciona con las columnas NUEVAS."""
 
     s = crud.get_dashboard_stats(db)
+    last_upload = db.query(models.UploadBatch).order_by(models.UploadBatch.uploaded_at.desc()).first()
+    backup_dir = Path(os.getenv("BACKUP_DIR", "backups"))
+    latest_backup = None
+    if backup_dir.exists():
+        backups = sorted(backup_dir.glob("safedata_*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if backups:
+            latest_backup = {"file": backups[0].name, "updated_at": backups[0].stat().st_mtime}
     return {
         "ok": True,
+        "version": app.version,
         "total": s.total_denuncias,
         "zonas": getattr(s, "denuncias_por_zona", {}),
         "turnos": getattr(s, "denuncias_por_turno", {}),
         "tipos": getattr(s, "tipos_denuncia", {}),
         "estados": getattr(s, "estados_denuncia", {}),
+        "ultima_carga": {
+            "id": last_upload.id,
+            "uploaded_at": last_upload.uploaded_at.isoformat() if last_upload.uploaded_at else None,
+            "status": last_upload.status,
+            "accepted_rows": last_upload.accepted_rows,
+            "rejected_rows": last_upload.rejected_rows,
+        } if last_upload else None,
+        "ultimo_backup": latest_backup,
     }
 
 

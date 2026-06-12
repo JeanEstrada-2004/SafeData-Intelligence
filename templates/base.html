@@ -74,6 +74,20 @@
                                 Usuarios
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if '/admin/catalogos' in request.url.path %}active{% endif %}" href="/admin/catalogos">
+                                <i class="fa-solid fa-list-check me-2"></i>
+                                Catalogos
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if role in ['Gerente','OTICS','AdministradorTecnico'] %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if '/admin/auditoria' in request.url.path %}active{% endif %}" href="/admin/auditoria">
+                                <i class="fa-solid fa-shield-halved me-2"></i>
+                                Auditoria
+                            </a>
+                        </li>
                         {% endif %}
                     </ul>
                 </div>

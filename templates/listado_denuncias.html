@@ -7,45 +7,62 @@
 {% block content %}
 <div class="compact-filter mb-3">
   <div class="card-body">
-    <form id="filtrosForm" class="row g-3 align-items-end">
-      <div class="col-md-3">
+    <form id="filtrosForm" class="row g-3 align-items-end" method="get">
+      <div class="col-md-2">
         <label class="form-label">Zona</label>
-        <select class="form-select" id="filtroZona">
+        <select class="form-select" id="filtroZona" name="zona">
           <option value="">Todas</option>
           {% for z in range(1,8) %}
-          <option value="{{ z }}">Zona {{ z }}</option>
+          <option value="{{ z }}" {% if filters.zona == z %}selected{% endif %}>Zona {{ z }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-3">
-        <label class="form-label">Tipo de denuncia</label>
-        <select class="form-select" id="filtroTipo">
+      <div class="col-md-2">
+        <label class="form-label">Tipo</label>
+        <select class="form-select" id="filtroTipo" name="tipo">
           <option value="">Todos</option>
           {% for t in tipos_unicos %}
-          <option value="{{ t }}">{{ t }}</option>
+          <option value="{{ t }}" {% if filters.tipo == t %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="col-md-2">
         <label class="form-label">Turno</label>
-        <select class="form-select" id="filtroTurno">
+        <select class="form-select" id="filtroTurno" name="turno">
           <option value="">Todos</option>
           {% for t in turnos_unicos %}
-          <option value="{{ t }}">{{ t }}</option>
+          <option value="{{ t }}" {% if filters.turno == t %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="col-md-2">
-        <label class="form-label">Fecha</label>
-        <input type="date" class="form-control" id="filtroFecha">
+        <label class="form-label">Estado</label>
+        <select class="form-select" name="estado">
+          <option value="">Todos</option>
+          {% for e in estados_unicos %}
+          <option value="{{ e }}" {% if filters.estado == e %}selected{% endif %}>{{ e }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Desde</label>
+        <input type="date" class="form-control" name="desde" value="{{ filters.desde or '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Hasta</label>
+        <input type="date" class="form-control" name="hasta" value="{{ filters.hasta or '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Buscar</label>
+        <input type="text" class="form-control" name="q" value="{{ filters.q or '' }}" placeholder="Número de parte, texto, lugar">
       </div>
       <div class="col-md-2 d-flex gap-2">
-        <button type="button" class="btn btn-primary flex-fill" onclick="aplicarFiltros()">
+        <button type="submit" class="btn btn-primary flex-fill">
           <i class="fas fa-filter"></i>
         </button>
-        <button type="button" class="btn btn-secondary flex-fill" onclick="limpiarFiltros()">
+        <a class="btn btn-secondary flex-fill" href="/listado-denuncias">
           <i class="fas fa-xmark"></i>
-        </button>
+        </a>
       </div>
     </form>
   </div>
@@ -54,7 +71,15 @@
 <div class="card">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h6><i class="fas fa-table-list me-2 text-primary"></i>Registro operativo</h6>
-    <span class="compact-counter"><strong id="totalRegistros">{{ denuncias_json|length }}</strong> denuncias</span>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <a class="btn btn-sm btn-outline-primary" href="/api/denuncias/export.csv?{{ request.url.query }}">
+        <i class="fas fa-file-csv me-1"></i>CSV
+      </a>
+      <a class="btn btn-sm btn-outline-primary" href="/api/denuncias/export.xlsx?{{ request.url.query }}">
+        <i class="fas fa-file-excel me-1"></i>Excel
+      </a>
+      <span class="compact-counter"><strong id="totalRegistros">{{ total }}</strong> incidencias</span>
+    </div>
   </div>
   <div class="card-body">
     <div class="table-responsive">
@@ -72,11 +97,47 @@
             <th class="text-center" style="width:90px">Acción</th>
           </tr>
         </thead>
-        <tbody></tbody>
+        <tbody>
+          {% for d in denuncias %}
+          <tr>
+            <td class="fw-bold">#{{ d.id }}</td>
+            <td>{{ d.fecha_hora_suceso.strftime('%d/%m/%Y %H:%M') if d.fecha_hora_suceso else '-' }}</td>
+            <td><span class="badge badge-turno">{{ d.turno or '-' }}</span></td>
+            <td><span class="badge badge-zone">Zona {{ d.zona_denuncia }}</span></td>
+            <td class="fw-semibold">{{ d.tipo_denuncia or '-' }}</td>
+            <td>{{ d.lugar_ocurrencia or '-' }}</td>
+            <td>{{ d.resultado_ocurrencia or '-' }}</td>
+            <td>{{ d.sexo_victima or '-' }} · {{ d.edad_victima if d.edad_victima is not none else '-' }}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary" onclick="verDetalle({{ d.id }})" title="Ver detalle">
+                <i class="fas fa-eye"></i>
+              </button>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="9" class="text-center text-muted py-4">No hay incidencias para los filtros seleccionados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
       </table>
     </div>
     <nav aria-label="Paginación" class="mt-3">
-      <ul class="pagination justify-content-center" id="paginacion"></ul>
+      <ul class="pagination justify-content-center" id="paginacion">
+        {% if page > 1 %}
+        <li class="page-item"><a class="page-link" href="?{{ request.url.query | replace('page=' ~ page, 'page=' ~ (page - 1)) if 'page=' in request.url.query else request.url.query ~ '&page=' ~ (page - 1) }}">Anterior</a></li>
+        {% endif %}
+        {% for i in range(1, total_pages + 1) %}
+        {% if i == page %}
+        <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+        {% elif i <= 2 or i > total_pages - 2 or (i >= page - 1 and i <= page + 1) %}
+        <li class="page-item"><a class="page-link" href="?{{ request.url.query | replace('page=' ~ page, 'page=' ~ i) if 'page=' in request.url.query else request.url.query ~ '&page=' ~ i }}">{{ i }}</a></li>
+        {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <li class="page-item"><a class="page-link" href="?{{ request.url.query | replace('page=' ~ page, 'page=' ~ (page + 1)) if 'page=' in request.url.query else request.url.query ~ '&page=' ~ (page + 1) }}">Siguiente</a></li>
+        {% endif %}
+      </ul>
     </nav>
   </div>
 </div>
@@ -99,92 +160,10 @@
 
 {% block scripts %}
 <script>
-let denuncias = {{ denuncias_json | default([], true) | tojson }};
-const usarCliente = Array.isArray(denuncias) && denuncias.length > 0;
-let filtradas = usarCliente ? [...denuncias] : [];
-const regsXPag = 10;
-let pag = 1;
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (!usarCliente) return;
-  document.getElementById('totalRegistros').textContent = filtradas.length;
-  mostrarPagina(1);
-});
-
-function aplicarFiltros() {
-  if (!usarCliente) return;
-  const zona = document.getElementById('filtroZona').value;
-  const tipo = document.getElementById('filtroTipo').value;
-  const turno = document.getElementById('filtroTurno').value;
-  const fecha = document.getElementById('filtroFecha').value;
-
-  filtradas = denuncias.filter(d => {
-    const okZona = !zona || String(d.zona_denuncia) === String(zona);
-    const okTipo = !tipo || (d.tipo_denuncia || '') === tipo;
-    const okTurno = !turno || (d.turno || '') === turno;
-    const okFecha = !fecha || (d.fecha_hora_suceso && d.fecha_hora_suceso.slice(0,10) === fecha);
-    return okZona && okTipo && okTurno && okFecha;
-  });
-  document.getElementById('totalRegistros').textContent = filtradas.length;
-  mostrarPagina(1);
-}
-
-function limpiarFiltros() {
-  if (!usarCliente) return;
-  document.getElementById('filtrosForm').reset();
-  filtradas = [...denuncias];
-  document.getElementById('totalRegistros').textContent = filtradas.length;
-  mostrarPagina(1);
-}
-
-function mostrarPagina(n) {
-  if (!usarCliente) return;
-  pag = n;
-  const ini = (n - 1) * regsXPag;
-  const datos = filtradas.slice(ini, ini + regsXPag);
-  const tbody = document.querySelector('#tablaDenuncias tbody');
-  tbody.innerHTML = '';
-  datos.forEach(d => tbody.appendChild(fila(d)));
-  paginar();
-}
-
-function fila(d) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td class="fw-bold">#${d.id}</td>
-    <td>${d.fecha_hora_suceso ? new Date(d.fecha_hora_suceso).toLocaleString('es-PE') : '-'}</td>
-    <td><span class="badge badge-turno">${d.turno || '-'}</span></td>
-    <td><span class="badge badge-zone">Zona ${d.zona_denuncia}</span></td>
-    <td class="fw-semibold">${d.tipo_denuncia || '-'}</td>
-    <td>${d.lugar_ocurrencia || '-'}</td>
-    <td>${d.resultado_ocurrencia || '-'}</td>
-    <td>${d.sexo_victima || '-'} · ${(d.edad_victima ?? '-')}</td>
-    <td class="text-center">
-      <button class="btn btn-sm btn-outline-primary" onclick="verDetalle(${d.id})" title="Ver detalle">
-        <i class="fas fa-eye"></i>
-      </button>
-    </td>`;
-  return tr;
-}
-
-function paginar() {
-  const total = Math.ceil(filtradas.length / regsXPag);
-  const ul = document.getElementById('paginacion');
-  if (total <= 1) { ul.innerHTML = ''; return; }
-  let html = '';
-  if (pag > 1) html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(${pag-1})">Anterior</a></li>`;
-  for (let i = 1; i <= total; i++) {
-    html += (i === pag)
-      ? `<li class="page-item active"><span class="page-link">${i}</span></li>`
-      : `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(${i})">${i}</a></li>`;
-  }
-  if (pag < total) html += `<li class="page-item"><a class="page-link" href="#" onclick="mostrarPagina(${pag+1})">Siguiente</a></li>`;
-  ul.innerHTML = html;
-}
-
-function verDetalle(id) {
-  if (!usarCliente) return;
-  const d = denuncias.find(x => x.id === id);
+async function verDetalle(id) {
+  const response = await fetch(`/api/denuncias/${id}`);
+  if (!response.ok) return;
+  const d = await response.json();
   if (!d) return;
   document.getElementById('detalleContent').innerHTML = `
     <div class="row g-3">
@@ -200,6 +179,8 @@ function verDetalle(id) {
       <div class="col-md-6"><strong>Resultado:</strong> ${d.resultado_ocurrencia || '-'}</div>
       <div class="col-md-6"><strong>Lugar:</strong> ${d.lugar_ocurrencia || '-'}</div>
       <div class="col-md-6"><strong>Víctima:</strong> ${d.sexo_victima || '-'} · ${(d.edad_victima ?? '-')}</div>
+      <div class="col-md-6"><strong>Lote de carga:</strong> ${d.upload_batch_id ? '#' + d.upload_batch_id : '-'}</div>
+      <div class="col-md-6"><strong>Archivo origen:</strong> ${d.source_file || '-'}</div>
       <div class="col-12">
         <strong>Comentarios:</strong>
         <div class="bg-light p-3 rounded mt-2">${d.comentarios || 'Sin comentarios'}</div>

@@ -3,7 +3,8 @@
   const STORAGE_KEY = "safedata.mapaCalor.filters";
   const MAP_CENTER = [-71.531532, -16.408978];
   const DEFAULT_STYLE = "mapbox://styles/mapbox/standard";
-  const FALLBACK_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
+  const FALLBACK_STYLE = "mapbox://styles/mapbox/streets-v12";
+  const ZONE_COLORS = ["#0077b6", "#008f7a", "#7c3aed", "#d97706", "#dc2626", "#0891b2", "#15803d"];
 
   let map;
   let currentPoints = emptyFeatureCollection();
@@ -58,13 +59,13 @@
       style: DEFAULT_STYLE,
       center: MAP_CENTER,
       zoom: 13.4,
-      pitch: 60,
-      bearing: -20,
+      pitch: 54,
+      bearing: -18,
       antialias: true,
       attributionControl: false,
       config: {
         basemap: {
-          lightPreset: "dusk",
+          lightPreset: "day",
           showPointOfInterestLabels: true,
           showRoadLabels: true,
           showTransitLabels: false,
@@ -77,6 +78,15 @@
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
 
     map.on("style.load", () => {
+      if (typeof map.setFog === "function") {
+        map.setFog({
+          color: "rgb(226, 235, 241)",
+          "high-color": "rgb(196, 218, 232)",
+          "horizon-blend": 0.1,
+          "space-color": "rgb(236, 242, 246)",
+          "star-intensity": 0,
+        });
+      }
       addOrUpdateSourcesAndLayers();
       applyLayerVisibility();
     });
@@ -86,7 +96,7 @@
       if (!fallbackApplied && message && !message.includes("401")) {
         fallbackApplied = true;
         map.setStyle(FALLBACK_STYLE);
-        showSummary("Estilo estándar no disponible. Usando vista satelital.", false);
+        showSummary("Estilo estándar no disponible. Usando vista de calles.", false);
       }
     });
   }
@@ -157,18 +167,53 @@
     addZonesLayers();
     addHeatLayer();
     addClusterLayers();
+    orderMapLayers();
     bindMapInteractions();
   }
 
+  function orderMapLayers() {
+    if (!map) return;
+    try {
+      if (map.getLayer("zones-outline") && map.getLayer("clusters")) {
+        map.moveLayer("zones-outline", "clusters");
+      }
+      if (map.getLayer("zones-label") && map.getLayer("clusters")) {
+        map.moveLayer("zones-label", "clusters");
+      }
+    } catch (error) {
+      console.debug("No se pudo reordenar capas del mapa", error);
+    }
+  }
+
   function addZonesLayers() {
+    const zoneColorMatch = [
+      "match",
+      ["to-number", ["get", "id_zona"]],
+      1,
+      ZONE_COLORS[0],
+      2,
+      ZONE_COLORS[1],
+      3,
+      ZONE_COLORS[2],
+      4,
+      ZONE_COLORS[3],
+      5,
+      ZONE_COLORS[4],
+      6,
+      ZONE_COLORS[5],
+      7,
+      ZONE_COLORS[6],
+      "#0077b6",
+    ];
+
     if (!map.getLayer("zones-fill")) {
       map.addLayer({
         id: "zones-fill",
         type: "fill",
         source: "zonas-source",
         paint: {
-          "fill-color": "#00a878",
-          "fill-opacity": 0.12,
+          "fill-color": zoneColorMatch,
+          "fill-opacity": ["interpolate", ["linear"], ["zoom"], 11, 0.18, 13, 0.28, 15, 0.38],
         },
       });
     }
@@ -178,9 +223,29 @@
         type: "line",
         source: "zonas-source",
         paint: {
-          "line-color": "#00d89c",
-          "line-width": 2,
-          "line-opacity": 0.75,
+          "line-color": zoneColorMatch,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1.6, 14, 2.8, 16, 3.6],
+          "line-opacity": 0.96,
+        },
+      });
+    }
+    if (!map.getLayer("zones-label")) {
+      map.addLayer({
+        id: "zones-label",
+        type: "symbol",
+        source: "zonas-source",
+        minzoom: 12,
+        layout: {
+          "text-field": ["concat", "Zona ", ["to-string", ["get", "id_zona"]]],
+          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+          "text-size": ["interpolate", ["linear"], ["zoom"], 12, 12, 15, 14],
+          "text-allow-overlap": false,
+          "text-padding": 8,
+        },
+        paint: {
+          "text-color": "#063a46",
+          "text-halo-color": "rgba(255,255,255,0.92)",
+          "text-halo-width": 2,
         },
       });
     }
@@ -282,12 +347,13 @@
     map.on("click", "unclustered-point", (event) => {
       const feature = event.features[0];
       const p = feature.properties || {};
+      const precision = describeGeoPrecision(p);
       new mapboxgl.Popup({ closeButton: true, maxWidth: "300px" })
         .setLngLat(feature.geometry.coordinates)
         .setHTML(`
           <div class="map-popup">
             <strong>${p.tipo || "Sin tipo"}</strong>
-            <div class="meta">Turno: ${p.turno || "-"}<br>Fecha: ${formatDateTime(p.fecha)}<br>Zona: ${p.zona || "-"}<br>Dirección: ${p.direccion || "Sin registro"}</div>
+            <div class="meta">Turno: ${p.turno || "-"}<br>Fecha: ${formatDateTime(p.fecha)}<br>Zona: ${p.zona || "-"}<br>Dirección: ${p.direccion || "Sin registro"}<br>Coordenada: ${precision}</div>
           </div>
         `)
         .addTo(map);
@@ -366,7 +432,8 @@
   function applyLayerVisibility() {
     setVisibility(["denuncias-heatmap"], layersState.heat);
     setVisibility(["clusters", "cluster-count", "unclustered-point"], layersState.clusters);
-    setVisibility(["zones-fill", "zones-outline"], layersState.zones);
+    setVisibility(["zones-fill", "zones-outline", "zones-label"], layersState.zones);
+    updateHudMeta(collectFilters());
   }
 
   function setVisibility(ids, visible) {
@@ -381,6 +448,7 @@
       const layerType = btn.getAttribute("data-layer");
       btn.classList.toggle("active", Boolean(layersState[layerType]));
     });
+    updateHudLayers();
   }
 
   function pointsToGeoJson(points) {
@@ -399,6 +467,9 @@
             fecha: p.fecha || "",
             zona: p.zona || "",
             direccion: p.direccion || "",
+            geocode_status: p.geocode_status || "",
+            geocode_precision: p.geocode_precision || "",
+            geo_method: p.geo_method || "",
           },
         })),
     };
@@ -439,6 +510,29 @@
       option.textContent = opt.label;
       select.appendChild(option);
     });
+    renderChoiceCards(elementId);
+  }
+
+  function renderChoiceCards(elementId) {
+    const select = document.getElementById(elementId);
+    const container = document.getElementById(`${elementId}-cards`);
+    if (!select || !container) return;
+
+    container.innerHTML = "";
+    Array.from(select.options).forEach((option) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "choice-card";
+      card.textContent = option.textContent;
+      card.title = option.textContent;
+      card.setAttribute("aria-pressed", option.selected ? "true" : "false");
+      card.classList.toggle("active", option.selected);
+      card.addEventListener("click", () => {
+        option.selected = !option.selected;
+        renderChoiceCards(elementId);
+      });
+      container.appendChild(card);
+    });
   }
 
   function collectFilters() {
@@ -453,7 +547,8 @@
   }
 
   function getSelectValues(id) {
-    return Array.from(document.getElementById(id).selectedOptions).map((o) => o.value);
+    const select = document.getElementById(id);
+    return select ? Array.from(select.selectedOptions).map((o) => o.value) : [];
   }
 
   function setSelectValues(id, values) {
@@ -461,6 +556,7 @@
     if (!el) return;
     const normalized = (values || []).map((v) => v.toString());
     Array.from(el.options).forEach((o) => { o.selected = normalized.includes(o.value.toString()); });
+    renderChoiceCards(id);
   }
 
   function saveFilters(filters) {
@@ -525,6 +621,33 @@
     if (filters.zonas?.length) parts.push(`Zonas: ${filters.zonas.join(", ")}`);
     const message = parts.length ? `${parts.join(" · ")}` : "Sin filtros aplicados";
     showSummary(`${message} · ${count} visibles`, false);
+    updateHudMeta(filters);
+    updateHudLayers();
+  }
+
+  function updateHudMeta(filters) {
+    const periodo = document.getElementById("hud-periodo");
+    const zona = document.getElementById("hud-zona");
+    if (periodo) {
+      periodo.textContent = filters?.desde || filters?.hasta
+        ? `${filters.desde || "Inicio"} - ${filters.hasta || "Actual"}`
+        : "Sin filtros";
+    }
+    if (zona) {
+      zona.textContent = filters?.zonas?.length
+        ? filters.zonas.map((z) => `Zona ${z}`).join(", ")
+        : "Todas las zonas";
+    }
+  }
+
+  function updateHudLayers() {
+    const el = document.getElementById("hud-capas");
+    if (!el) return;
+    const active = [];
+    if (layersState.heat) active.push("Heatmap");
+    if (layersState.clusters) active.push("Clusters");
+    if (layersState.zones) active.push("Zonas");
+    el.textContent = active.length ? active.join(" · ") : "Sin capas activas";
   }
 
   function showSummary(message, isError) {
@@ -551,6 +674,15 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return `${formatDate(date)} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+
+  function describeGeoPrecision(p) {
+    const precision = String(p.geocode_precision || "").toLowerCase();
+    const method = String(p.geo_method || "").toLowerCase();
+    if (precision === "centroid" || method === "manual") return "Aproximada por centroide";
+    if (["rooftop", "interpolated", "street"].includes(precision)) return "Geocodificada";
+    if (precision || method) return "Aproximada";
+    return "No especificada";
   }
 })();
 

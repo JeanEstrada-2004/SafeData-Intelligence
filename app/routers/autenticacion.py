@@ -17,7 +17,15 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import AuditAccess, PasswordResetToken, User
 from ..utils.correo import send_password_reset_email
-from ..utils.seguridad import create_access_token, get_current_user, hash_password, try_get_current_user, verify_password
+from ..utils.seguridad import (
+    audit_event,
+    create_access_token,
+    get_current_user,
+    hash_password,
+    try_get_current_user,
+    validate_password_policy,
+    verify_password,
+)
 
 
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000")
@@ -28,15 +36,7 @@ router = APIRouter(tags=["auth"])
 
 
 def _audit(db: Session, request: Request, action: str, user: Optional[User] = None):
-    rec = AuditAccess(
-        user_id=user.id if user else None,
-        action=action,
-        path=str(request.url.path),
-        ip=request.client.host if request.client else None,
-        user_agent=request.headers.get("User-Agent"),
-    )
-    db.add(rec)
-    db.commit()
+    audit_event(db, request, action, user=user)
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -127,6 +127,12 @@ def reset_password_post(
     if new_password != confirm_password:
         return templates.TemplateResponse(
             "restablecer_contrasena.html", {"request": request, "token": token, "error": "Las contraseñas no coinciden"}, status_code=400
+        )
+    try:
+        validate_password_policy(new_password)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            "restablecer_contrasena.html", {"request": request, "token": token, "error": str(exc)}, status_code=400
         )
 
     prt = (

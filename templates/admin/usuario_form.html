@@ -33,7 +33,7 @@
     <div class="col-12 col-lg-6">
       <label class="form-label">Rol</label>
       <select class="form-select" name="role" {% if item %}data-selected="{{ item.role }}"{% endif %}>
-        {% for r in ['Gerente','JefeOperaciones','Analista','EncargadoSipCop'] %}
+        {% for r in ['Gerente','JefeOperaciones','Analista','EncargadoSipCop','OTICS','AdministradorTecnico'] %}
         <option value="{{ r }}" {% if item and item.role == r %}selected{% endif %}>{{ r }}</option>
         {% endfor %}
       </select>

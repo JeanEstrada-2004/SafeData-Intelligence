@@ -1,8 +1,8 @@
 # app/crud.py
 from sqlalchemy.orm import Session
-from sqlalchemy import func, cast, Date
-from typing import List, Dict
-from datetime import date, timedelta
+from sqlalchemy import func, cast, Date, or_
+from typing import List, Dict, Optional
+from datetime import date, datetime, timedelta
 from . import models, schemas
 
 # ---------------------------
@@ -35,13 +35,75 @@ def create_denuncias_bulk(db: Session, rows: List[schemas.DenunciaCreate]):
     db.commit()
     return len(objs)
 
-def listar_denuncias(db: Session, limit: int = 1000):
-    return (
-        db.query(models.Denuncia)
-        .order_by(models.Denuncia.id.desc())
-        .limit(limit)
-        .all()
-    )
+def _parse_filter_date(value: Optional[str], end_of_day: bool = False):
+    if not value:
+        return None
+    try:
+        dt = datetime.strptime(value, "%Y-%m-%d")
+        if end_of_day:
+            return dt + timedelta(days=1) - timedelta(microseconds=1)
+        return dt
+    except ValueError:
+        return None
+
+
+def denuncias_query(
+    db: Session,
+    *,
+    zona: Optional[int] = None,
+    tipo: Optional[str] = None,
+    turno: Optional[str] = None,
+    estado: Optional[str] = None,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+    q: Optional[str] = None,
+):
+    query = db.query(models.Denuncia)
+    if zona:
+        query = query.filter(models.Denuncia.zona_denuncia == zona)
+    if tipo:
+        query = query.filter(models.Denuncia.tipo_denuncia == tipo)
+    if turno:
+        query = query.filter(models.Denuncia.turno == turno)
+    if estado:
+        query = query.filter(models.Denuncia.estado_denuncia == estado)
+    desde_dt = _parse_filter_date(desde)
+    hasta_dt = _parse_filter_date(hasta, end_of_day=True)
+    if desde_dt:
+        query = query.filter(models.Denuncia.fecha_hora_suceso >= desde_dt)
+    if hasta_dt:
+        query = query.filter(models.Denuncia.fecha_hora_suceso <= hasta_dt)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                models.Denuncia.numero_parte.ilike(like),
+                models.Denuncia.tipo_denuncia.ilike(like),
+                models.Denuncia.lugar_ocurrencia.ilike(like),
+                models.Denuncia.direccion_ocurrencia.ilike(like),
+                models.Denuncia.comentarios.ilike(like),
+            )
+        )
+    return query
+
+
+def contar_denuncias(
+    db: Session,
+    **filters,
+) -> int:
+    return int(denuncias_query(db, **filters).count() or 0)
+
+
+def listar_denuncias(
+    db: Session,
+    limit: int = 1000,
+    offset: int = 0,
+    order: str = "desc",
+    **filters,
+):
+    query = denuncias_query(db, **filters)
+    order_col = models.Denuncia.fecha_hora_suceso.asc() if order == "asc" else models.Denuncia.fecha_hora_suceso.desc()
+    return query.order_by(order_col.nullslast(), models.Denuncia.id.desc()).offset(offset).limit(limit).all()
 
 # ---------------------------
 # Agregaciones

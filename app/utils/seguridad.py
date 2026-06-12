@@ -5,8 +5,9 @@ Auth por cookie: guarda un JWT HS256 en la cookie HttpOnly `access_token`.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 import bcrypt
 import jwt
@@ -17,7 +18,12 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import AuditAccess, User
 
-SECRET_KEY = os.getenv("SECRET_KEY", "changeme-super-secret")
+APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
+if APP_ENV in {"production", "prod"} and (not SECRET_KEY or SECRET_KEY == "changeme-super-secret"):
+    raise RuntimeError("SECRET_KEY es obligatorio y debe ser seguro en producción")
+if not SECRET_KEY:
+    SECRET_KEY = "dev-only-change-me"
 ACCESS_TOKEN_EXPIRES_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRES_MIN", "60"))
 
 
@@ -48,6 +54,16 @@ def verify_password(password: str, hashed: str) -> bool:
         return bcrypt.checkpw(pw_bytes, hashed_bytes)
     except Exception:
         return False
+
+
+def validate_password_policy(password: str) -> None:
+    """Validate the minimum password policy used by admin and reset flows."""
+    if len(password or "") < 8:
+        raise ValueError("La contraseña debe tener al menos 8 caracteres")
+    if not re.search(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]", password):
+        raise ValueError("La contraseña debe incluir al menos una letra")
+    if not re.search(r"\d", password):
+        raise ValueError("La contraseña debe incluir al menos un número")
 
 
 
@@ -131,12 +147,31 @@ def audit_view(
     db: Session = Depends(get_db),
     user: Optional[User] = Depends(try_get_current_user),
 ):
+    audit_event(db, request, "view", user=user, status="ok")
+
+
+def audit_event(
+    db: Session,
+    request: Request,
+    action: str,
+    *,
+    user: Optional[User] = None,
+    status: str = "ok",
+    detail: Optional[dict[str, Any]] = None,
+) -> None:
+    """Persist an audit event without breaking the caller on audit failure."""
     record = AuditAccess(
         user_id=getattr(user, "id", None),
-        action="view",
+        action=action,
         path=str(request.url.path),
+        method=getattr(request, "method", None),
         ip=request.client.host if request.client else None,
         user_agent=request.headers.get("User-Agent"),
+        status=status,
+        detail_json=detail,
     )
-    db.add(record)
-    db.commit()
+    try:
+        db.add(record)
+        db.commit()
+    except Exception:
+        db.rollback()

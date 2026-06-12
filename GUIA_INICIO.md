@@ -149,7 +149,7 @@ Abre tu navegador en: http://localhost:8000
 
 ### 2. Iniciar Sesión
 
-- **URL:** http://localhost:8000/iniciar-sesion
+- **URL:** http://localhost:8000/login
 - **Usuario:** `admin@safedata.com`
 - **Contraseña:** `Admin123!`
 

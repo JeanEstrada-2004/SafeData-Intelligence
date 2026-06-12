@@ -1,5 +1,5 @@
 """Router para predicción de delitos con IA/ML."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from datetime import datetime
@@ -12,7 +12,8 @@ import numpy as np
 from pathlib import Path
 
 from ..database import get_db
-from ..models import Denuncia
+from ..models import Denuncia, PredictionLog, User
+from ..utils.seguridad import audit_event, require_roles
 
 router = APIRouter()
 
@@ -28,6 +29,7 @@ class PrediccionRequest(BaseModel):
 MODEL_PATH = Path("models/prediccion_delitos.pkl")
 ml_model = None
 label_encoder = None
+MODEL_VERSION = "heuristica"
 if MODEL_PATH.exists():
     try:
         with open(MODEL_PATH, "rb") as f:
@@ -35,6 +37,7 @@ if MODEL_PATH.exists():
             # Extraer el modelo y el encoder del diccionario
             ml_model = model_data['model']
             label_encoder = model_data.get('label_encoder')
+            MODEL_VERSION = str(model_data.get("trained_at") or MODEL_PATH.stat().st_mtime)
         print(f"✅ Modelo ML cargado desde {MODEL_PATH}")
     except Exception as e:
         print(f"⚠️ Error al cargar modelo ML: {e}")
@@ -46,8 +49,10 @@ else:
 
 @router.post("/prediccion")
 async def predecir_riesgo(
+    request_http: Request,
     request: PrediccionRequest,
     db: Session = Depends(get_db),
+    user: User = Depends(require_roles("Gerente", "JefeOperaciones", "Analista")),
 ):
     """
     Predice el nivel de riesgo de delitos basándose en:
@@ -85,6 +90,7 @@ async def predecir_riesgo(
         nivel_riesgo = "MEDIO"
         probabilidad = 0.5
         usa_modelo_ml = False
+        model_type = "heuristica"
         
         # **USAR MODELO ML SI ESTÁ DISPONIBLE**
         if ml_model is not None:
@@ -121,6 +127,7 @@ async def predecir_riesgo(
                 nivel_riesgo = prediccion
                 probabilidad = max(probabilidades)
                 usa_modelo_ml = True
+                model_type = "ml"
                 
                 print(f"🤖 Predicción ML: {nivel_riesgo} ({probabilidad:.2%})")
                 
@@ -218,7 +225,7 @@ async def predecir_riesgo(
         
         # **VALIDAR SI HAY SUFICIENTES DATOS**
         if total_denuncias == 0:
-            return {
+            output = {
                 "zona": zona,
                 "turno": turno,
                 "dia_semana": dia_semana,
@@ -232,8 +239,14 @@ async def predecir_riesgo(
                     "tipo": "info",
                     "texto": "📊 No hay datos históricos suficientes para esta combinación de zona y turno. Se recomienda patrullaje preventivo estándar."
                 }],
-                "mensaje": "No se encontraron datos históricos para realizar una predicción confiable."
+                "mensaje": "No se encontraron datos históricos para realizar una predicción confiable.",
+                "model_type": "sin_datos",
+                "model_version": MODEL_VERSION,
+                "explicacion": "No se encontraron registros históricos para la combinación seleccionada.",
             }
+            _log_prediction(db, user, request, output, "sin_datos", "SIN_DATOS")
+            audit_event(db, request_http, "prediction_query", user=user, detail={"risk_level": "SIN_DATOS", "model_type": "sin_datos"})
+            return output
         
         # 5. Obtener tipos de delitos más comunes en esa zona/turno
         tipos_comunes = db.query(
@@ -259,7 +272,7 @@ async def predecir_riesgo(
             densidad_diaria
         )
         
-        return {
+        output = {
             "zona": zona,
             "turno": turno,
             "dia_semana": dia_semana,
@@ -269,8 +282,14 @@ async def predecir_riesgo(
             "densidad_diaria": round(densidad_diaria, 2),
             "denuncias_este_dia": denuncias_dia,
             "tipos_comunes": tipos_lista,
-            "recomendaciones": recomendaciones
+            "recomendaciones": recomendaciones,
+            "model_type": model_type,
+            "model_version": MODEL_VERSION,
+            "explicacion": _build_explanation(model_type, total_denuncias, densidad_diaria),
         }
+        _log_prediction(db, user, request, output, model_type, nivel_riesgo)
+        audit_event(db, request_http, "prediction_query", user=user, detail={"risk_level": nivel_riesgo, "model_type": model_type})
+        return output
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al predecir: {str(e)}")
@@ -319,10 +338,37 @@ def generar_recomendaciones(nivel_riesgo: str, turno: str, tipos: list, densidad
     return recomendaciones
 
 
+def _build_explanation(model_type: str, total: int, densidad: float) -> str:
+    if model_type == "ml":
+        return "Resultado calculado con el modelo ML disponible y contrastado con estadísticas históricas."
+    return f"Resultado calculado con heurística de densidad histórica: {total} incidencias y densidad diaria {densidad:.2f}."
+
+
+def _log_prediction(db: Session, user: User, request: PrediccionRequest, output: Dict[str, Any], model_type: str, risk_level: str) -> None:
+    """Guarda el registro de predicción en base de datos para auditoría."""
+    try:
+        db.add(
+            PredictionLog(
+                user_id=user.id,
+                input_json=request.model_dump(),
+                output_json=output,
+                model_type=model_type,
+                model_version=MODEL_VERSION,
+                risk_level=risk_level,
+            )
+        )
+        db.commit()
+        print(f"✅ Predicción guardada en base de datos (nivel: {risk_level})")
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️ No se pudo guardar la predicción en auditoría: {e}")
+
+
 @router.get("/estadisticas/zona/{zona}")
 async def estadisticas_zona(
     zona: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("Gerente", "JefeOperaciones", "Analista")),
 ):
     """Obtiene estadísticas completas de una zona."""
     
@@ -362,7 +408,8 @@ async def estadisticas_zona(
 @router.get("/zonas-riesgo")
 async def obtener_zonas_riesgo(
     turno: str = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles("Gerente", "JefeOperaciones", "Analista")),
 ):
     """Obtiene un ranking de zonas por nivel de riesgo."""
     

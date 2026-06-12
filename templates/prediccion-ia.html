@@ -58,6 +58,9 @@
         <i class="fa-solid fa-radar fa-2x mb-3"></i>
         <h3>Motor predictivo en espera</h3>
         <p>Define una zona y turno para generar una lectura de riesgo.</p>
+        <div class="alert alert-warning mt-3 mb-0">
+          La predicción es un apoyo a la decisión y no reemplaza el criterio operativo de la Gerencia de Seguridad Ciudadana ni la coordinación con PNP.
+        </div>
       </div>
     </div>
   </div>
@@ -112,6 +115,7 @@ function renderResult(data) {
   const probability = Math.round((data.probabilidad || 0) * 1000) / 10;
   const tipos = data.tipos_comunes || [];
   const recomendaciones = data.recomendaciones || [];
+  const methodLabel = data.model_type === "ml" ? "Modelo ML" : (data.model_type === "sin_datos" ? "Sin datos" : "Heurística histórica");
 
   resultadoDiv.innerHTML = `
     <div class="risk-hero ${meta.cls}">
@@ -119,6 +123,11 @@ function renderResult(data) {
       <div class="risk-score">${probability}<span>%</span></div>
       <div class="risk-bar"><span style="width:${probability}%"></span></div>
       <p>Zona ${data.zona} · ${String(data.turno || "").toUpperCase()} · ${data.incidentes_historicos} incidentes similares</p>
+      <div class="small mt-2">Método: <strong>${methodLabel}</strong> · ${data.explicacion || ""}</div>
+    </div>
+
+    <div class="alert alert-warning mt-3 mb-0">
+      La predicción es un apoyo a la decisión y no reemplaza el criterio operativo de la Gerencia de Seguridad Ciudadana ni la coordinación con PNP.
     </div>
 
     <div class="risk-grid mt-3">

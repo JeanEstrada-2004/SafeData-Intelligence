@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from . import crud, models
 from .database import engine, get_db, quick_db_check
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.engine import make_url
 import time
 from .routers import denuncias as denuncias_router
 from .routers import mapa_calor as mapa_calor_router
@@ -22,9 +23,19 @@ from .routers import catalogos as catalogos_router
 from .routers import auditoria as auditoria_router
 from .utils.seguridad import try_get_current_user, require_roles
 
-# Evitar crear tablas en import time (causa fallos si la DB no responde).
-# Creamos las tablas en el evento de `startup` con reintentos para entornos
-# como Render donde la red o la DB pueden tardar en estar disponibles.
+APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
+APP_DEBUG = os.getenv("APP_DEBUG", "true" if APP_ENV != "production" else "false").lower() in {"1", "true", "yes", "y"}
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+
+app = FastAPI(title="Sistema de Denuncias Ciudadanas", version="1.0.0", debug=APP_DEBUG)
+
+# Static & templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 
 @app.on_event("startup")
@@ -34,6 +45,12 @@ async def on_startup():
     attempt = 0
     while attempt < max_retries:
         try:
+            # Log minimal DB info for debugging (no credentials)
+            try:
+                url = make_url(os.getenv("DATABASE_URL", ""))
+                logging.getLogger(__name__).info(f"Connecting to DB host={url.host} db={url.database}")
+            except Exception:
+                logging.getLogger(__name__).info("Connecting to DB (DATABASE_URL present)")
             # Intentar conectar y crear tablas
             with engine.connect() as conn:
                 models.Base.metadata.create_all(bind=engine)
@@ -49,20 +66,6 @@ async def on_startup():
     # Si agotamos reintentos, levantamos excepción para que la plataforma lo detecte
     logging.getLogger(__name__).error("Could not connect to DB after retries; aborting startup")
     raise RuntimeError("Database unavailable after startup retries")
-
-APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
-APP_DEBUG = os.getenv("APP_DEBUG", "true" if APP_ENV != "production" else "false").lower() in {"1", "true", "yes", "y"}
-
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO").upper(),
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
-
-app = FastAPI(title="Sistema de Denuncias Ciudadanas", version="1.0.0", debug=APP_DEBUG)
-
-# Static & templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 # API routers
 app.include_router(denuncias_router.router, prefix="/api/denuncias", tags=["denuncias"])

@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 
 from . import crud, models
 from .database import engine, get_db, quick_db_check
+from sqlalchemy.exc import OperationalError
+import time
 from .routers import denuncias as denuncias_router
 from .routers import mapa_calor as mapa_calor_router
 from .routers import autenticacion as auth_router
@@ -20,8 +22,33 @@ from .routers import catalogos as catalogos_router
 from .routers import auditoria as auditoria_router
 from .utils.seguridad import try_get_current_user, require_roles
 
-# Crea tablas (no borra nada; si estÃ¡n creadas, no hace cambios)
-models.Base.metadata.create_all(bind=engine)
+# Evitar crear tablas en import time (causa fallos si la DB no responde).
+# Creamos las tablas en el evento de `startup` con reintentos para entornos
+# como Render donde la red o la DB pueden tardar en estar disponibles.
+
+
+@app.on_event("startup")
+async def on_startup():
+    max_retries = int(os.getenv("DB_STARTUP_RETRIES", "8"))
+    delay = float(os.getenv("DB_STARTUP_DELAY", "1"))
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            # Intentar conectar y crear tablas
+            with engine.connect() as conn:
+                models.Base.metadata.create_all(bind=engine)
+            logging.getLogger(__name__).info("DB available and tables ensured")
+            return
+        except OperationalError as e:
+            attempt += 1
+            logging.getLogger(__name__).warning(
+                f"DB not ready (attempt {attempt}/{max_retries}): {e}. Retrying in {delay}s..."
+            )
+            time.sleep(delay)
+            delay = min(delay * 2, 10)
+    # Si agotamos reintentos, levantamos excepción para que la plataforma lo detecte
+    logging.getLogger(__name__).error("Could not connect to DB after retries; aborting startup")
+    raise RuntimeError("Database unavailable after startup retries")
 
 APP_ENV = os.getenv("APP_ENV", os.getenv("ENVIRONMENT", "development")).lower()
 APP_DEBUG = os.getenv("APP_DEBUG", "true" if APP_ENV != "production" else "false").lower() in {"1", "true", "yes", "y"}

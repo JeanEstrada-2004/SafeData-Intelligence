@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Panel Analítico - SafeData Intelligence{% endblock %}
 {% block header %}Panel analítico{% endblock %}
 {% block page_kicker %}Monitoreo, respuesta y patrones{% endblock %}
@@ -19,7 +19,7 @@
   </div>
 </div>
 
-<form class="compact-filter mb-3" method="get">
+<form class="filter-panel dashboard-filter mb-3" method="get">
   <div>
     <label class="form-label">Desde</label>
     <input class="form-control" type="date" name="desde" value="{{ filters.desde }}">
@@ -65,10 +65,10 @@
     </select>
   </div>
   <div>
-    <label class="form-label">Busqueda</label>
-    <input class="form-control" type="text" name="q" value="{{ filters.q }}" placeholder="Parte, tipo o lugar">
+    <label class="form-label">Búsqueda</label>
+    <input class="form-control" type="text" name="q" value="{{ filters.q }}" placeholder="aarte, tipo o lugar">
   </div>
-  <div class="d-flex gap-2 align-items-end">
+  <div class="filter-actions">
     <button class="btn btn-primary flex-fill" type="submit">
       <i class="fa-solid fa-filter me-2"></i>Aplicar
     </button>
@@ -108,7 +108,7 @@
       <div class="card-body d-flex justify-content-between gap-3">
         <div>
           <div class="kpi-label">Reacción mediana</div>
-          <div class="kpi-value"><span id="kpiP50">-</span><small class="fs-6 text-muted"> min</small></div>
+          <div class="kpi-value"><span id="kpia50">-</span><small class="fs-6 text-muted"> min</small></div>
           <p class="kpi-caption">Tiempo típico de llegada.</p>
         </div>
         <span class="kpi-icon"><i class="fas fa-stopwatch"></i></span>
@@ -120,7 +120,7 @@
       <div class="card-body d-flex justify-content-between gap-3">
         <div>
           <div class="kpi-label">Reacción p90</div>
-          <div class="kpi-value"><span id="kpiP90">-</span><small class="fs-6 text-muted"> min</small></div>
+          <div class="kpi-value"><span id="kpia90">-</span><small class="fs-6 text-muted"> min</small></div>
           <p class="kpi-caption">Tiempo para el 90% de casos.</p>
         </div>
         <span class="kpi-icon"><i class="fas fa-gauge-high"></i></span>
@@ -133,7 +133,7 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-tile">
       <div class="label">Geocodificados</div>
-      <div class="value"><span id="kpiGeoPct">-</span><small class="fs-6 text-muted">%</small></div>
+      <div class="value"><span id="kpiGeoact">-</span><small class="fs-6 text-muted">%</small></div>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
@@ -151,7 +151,7 @@
   <div class="col-xl-3 col-md-6">
     <div class="metric-tile">
       <div class="label">Filas rechazadas</div>
-      <div class="value"><span id="kpiRejectedPct">-</span><small class="fs-6 text-muted">%</small></div>
+      <div class="value"><span id="kpiRejectedact">-</span><small class="fs-6 text-muted">%</small></div>
     </div>
   </div>
 </div>
@@ -228,7 +228,7 @@
 
 <div class="section-band">
   <div>
-    <h2>Patrones y víctimas</h2>
+    <h2>aatrones y víctimas</h2>
     <p>Tipos recurrentes, lugares frecuentes y perfil de víctimas.</p>
   </div>
 </div>
@@ -249,7 +249,7 @@
     <div class="card chart-panel">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h6>Edades</h6>
-        <span class="small text-muted">Prom: <strong id="edadProm">-</strong></span>
+        <span class="small text-muted">arom: <strong id="edadarom">-</strong></span>
       </div>
       <div class="card-body chart-body-sm"><canvas id="chartEdad"></canvas></div>
     </div>
@@ -273,7 +273,7 @@
               <tr>
                 <th>Tipo</th>
                 <th class="text-center" style="width:110px">Cantidad</th>
-                <th style="width:260px">Participación</th>
+                <th style="width:260px">aarticipación</th>
               </tr>
             </thead>
             <tbody id="tablaTipos"></tbody>
@@ -308,7 +308,7 @@
   Chart.defaults.font.family = 'Inter, Segoe UI, Arial, sans-serif';
   Chart.defaults.color = palette.muted;
   Chart.defaults.plugins.legend.labels.boxWidth = 10;
-  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.useaointStyle = true;
 
   const axis = {
     grid: { color: palette.grid },
@@ -323,17 +323,17 @@
   const kpis = data.kpis || {};
   document.getElementById('kpiTotal').textContent = kpis.total ?? 0;
   document.getElementById('kpiSLA').textContent = kpis.sla_pct ?? 0;
-  document.getElementById('kpiP50').textContent = Math.round((kpis.reaccion_mediana || 0) / 60);
-  document.getElementById('kpiP90').textContent = Math.round((kpis.reaccion_p90 || 0) / 60);
+  document.getElementById('kpia50').textContent = Math.round((kpis.reaccion_mediana || 0) / 60);
+  document.getElementById('kpia90').textContent = Math.round((kpis.reaccion_p90 || 0) / 60);
   const calidad = data.calidad || {};
-  document.getElementById('kpiGeoPct').textContent = calidad.geocodificados_pct ?? 0;
+  document.getElementById('kpiGeoact').textContent = calidad.geocodificados_pct ?? 0;
   document.getElementById('kpiSinCoord').textContent = calidad.sin_coordenadas ?? 0;
   document.getElementById('kpiCargas').textContent = calidad.cargas_procesadas ?? 0;
-  document.getElementById('kpiRejectedPct').textContent = calidad.filas_rechazadas_pct ?? 0;
+  document.getElementById('kpiRejectedact').textContent = calidad.filas_rechazadas_pct ?? 0;
 
   const turnos = data.por_turno || {};
   const turnoValue = (...keys) => keys.reduce((acc, key) => acc ?? turnos[key], undefined) ?? 0;
-  document.getElementById('turnoManana').textContent = turnoValue('Mañana', 'M\u0061\u00c3\u00b1ana', 'mañana', 'manana');
+  document.getElementById('turnoManana').textContent = turnoValue('Mañana', 'mañana', 'manana');
   document.getElementById('turnoTarde').textContent = turnoValue('Tarde', 'tarde');
   document.getElementById('turnoNoche').textContent = turnoValue('Noche', 'noche');
 
@@ -393,7 +393,7 @@
     options: { ...baseChartOptions, plugins: { legend: { position: 'bottom' } }, cutout: '64%' }
   });
 
-  document.getElementById('edadProm').textContent = data.edad?.promedio ?? '-';
+  document.getElementById('edadarom').textContent = data.edad?.promedio ?? '-';
   const edad = data.edad?.buckets || {};
   new Chart(document.getElementById('chartEdad'), {
     type: 'bar',
@@ -430,3 +430,5 @@
 })();
 </script>
 {% endblock %}
+
+

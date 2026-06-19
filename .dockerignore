@@ -1,0 +1,17 @@
+.git
+.venv
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+backups
+temp
+static/uploads/*
+*.xlsx
+*.xls
+*.csv
+*.dump
+tmp_*.txt
+.pytest_cache
+.mypy_cache

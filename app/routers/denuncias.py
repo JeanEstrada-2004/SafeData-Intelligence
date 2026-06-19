@@ -1,4 +1,4 @@
-# app/routers/denuncias.py
+﻿# app/routers/denuncias.py
 from __future__ import annotations
 
 import csv
@@ -79,6 +79,35 @@ def _safe_filename(filename: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "_", stem)[:140]
 
 
+def _parse_optional_int(value: Any) -> Optional[int]:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clean_filters(
+    zona: Any = None,
+    tipo: Optional[str] = None,
+    turno: Optional[str] = None,
+    estado: Optional[str] = None,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+    q: Optional[str] = None,
+) -> dict:
+    return {
+        "zona": _parse_optional_int(zona),
+        "tipo": tipo or None,
+        "turno": turno or None,
+        "estado": estado or None,
+        "desde": desde or None,
+        "hasta": hasta or None,
+        "q": q or None,
+    }
+
+
 def _source_type(filename: str) -> str:
     name = filename.lower()
     if name.endswith(".csv"):
@@ -103,7 +132,7 @@ def _parse_dt(v) -> datetime:
         dt = pd.to_datetime(s, errors="raise")
         return dt.to_pydatetime() if hasattr(dt, "to_pydatetime") else dt
     except Exception as exc:
-        raise ValueError(f"Fecha/hora inválida: {v}") from exc
+        raise ValueError(f"Fecha/hora invÃ¡lida: {v}") from exc
 
 
 def _parse_optional_dt(v):
@@ -128,7 +157,7 @@ def _normalize_title(v) -> Optional[str]:
     if not s:
         return None
     lowered = s.lower()
-    if lowered in {"mañana", "manana"}:
+    if lowered in {"mañana", "maã±ana", "manana"}:
         return "Mañana"
     return lowered[:1].upper() + lowered[1:]
 
@@ -139,7 +168,7 @@ def _parse_int(v, field: str) -> int:
     try:
         return int(v)
     except Exception as exc:
-        raise ValueError(f"{field} inválido: {v}") from exc
+        raise ValueError(f"{field} invÃ¡lido: {v}") from exc
 
 
 def _catalog_map(db: Session, category: str, fallback: List[str]) -> Dict[str, str]:
@@ -202,14 +231,14 @@ def _validate_and_build(row: Dict[str, Any], row_number: int, db: Session, batch
     for col in TEXT_COLUMNS:
         normalized[col] = _normalize_text(row.get(col))
 
-    turno_map = _catalog_map(db, "turno", ["Mañana", "Tarde", "Noche"])
+    turno_map = _catalog_map(db, "turno", ["MaÃ±ana", "Tarde", "Noche"])
     estado_map = _catalog_map(db, "estado", ["Registrada", "Atendido", "Archivado", "Derivado"])
     tipo_map = _catalog_map(db, "tipo_incidencia", [])
 
     try:
         zona = _parse_int(row.get("zona_denuncia"), "zona_denuncia")
         if not db.get(models.Zona, zona):
-            _add_issue(issues, row_number, "zona_denuncia", row.get("zona_denuncia"), "zona_invalida", "La zona no existe en el catálogo de zonas.")
+            _add_issue(issues, row_number, "zona_denuncia", row.get("zona_denuncia"), "zona_invalida", "La zona no existe en el catÃ¡logo de zonas.")
     except ValueError as exc:
         zona = None
         _add_issue(issues, row_number, "zona_denuncia", row.get("zona_denuncia"), "zona_invalida", str(exc))
@@ -235,19 +264,19 @@ def _validate_and_build(row: Dict[str, Any], row_number: int, db: Session, batch
     turno_raw = normalized.get("turno")
     turno = turno_map.get((turno_raw or "").lower())
     if not turno:
-        _add_issue(issues, row_number, "turno", row.get("turno"), "turno_invalido", "Turno inválido. Usa Mañana, Tarde o Noche.")
+        _add_issue(issues, row_number, "turno", row.get("turno"), "turno_invalido", "Turno invÃ¡lido. Usa MaÃ±ana, Tarde o Noche.")
 
     estado_raw = normalized.get("estado_denuncia") or "Registrada"
     estado = estado_map.get(estado_raw.lower(), _normalize_title(estado_raw))
     if estado_raw.lower() not in estado_map:
-        _add_issue(issues, row_number, "estado_denuncia", row.get("estado_denuncia"), "estado_no_catalogado", "Estado no encontrado en catálogo; se guardará normalizado.", "warning")
+        _add_issue(issues, row_number, "estado_denuncia", row.get("estado_denuncia"), "estado_no_catalogado", "Estado no encontrado en catÃ¡logo; se guardarÃ¡ normalizado.", "warning")
 
     tipo_raw = normalized.get("tipo_denuncia")
     tipo = tipo_map.get((tipo_raw or "").lower(), _normalize_title(tipo_raw))
     if not tipo:
         _add_issue(issues, row_number, "tipo_denuncia", row.get("tipo_denuncia"), "tipo_requerido", "Tipo de incidencia requerido.")
     elif tipo_map and (tipo_raw or "").lower() not in tipo_map:
-        _add_issue(issues, row_number, "tipo_denuncia", row.get("tipo_denuncia"), "tipo_no_catalogado", "Tipo no encontrado en catálogo; se guardará normalizado.", "warning")
+        _add_issue(issues, row_number, "tipo_denuncia", row.get("tipo_denuncia"), "tipo_no_catalogado", "Tipo no encontrado en catÃ¡logo; se guardarÃ¡ normalizado.", "warning")
 
     edad = None
     if not _is_empty(row.get("edad_victima")):
@@ -269,10 +298,10 @@ def _validate_and_build(row: Dict[str, Any], row_number: int, db: Session, batch
         if numero_parte:
             dup_q = dup_q.filter(Denuncia.numero_parte == numero_parte)
         if dup_q.first():
-            _add_issue(issues, row_number, "numero_parte", numero_parte, "duplicado_operativo", "Registro duplicado por número de parte, fecha/hora y tipo.")
+            _add_issue(issues, row_number, "numero_parte", numero_parte, "duplicado_operativo", "Registro duplicado por nÃºmero de parte, fecha/hora y tipo.")
 
     if not normalized.get("lugar_ocurrencia") and not normalized.get("direccion_ocurrencia"):
-        _add_issue(issues, row_number, "lugar_ocurrencia", "", "ubicacion_incompleta", "Debe existir lugar o dirección de ocurrencia.")
+        _add_issue(issues, row_number, "lugar_ocurrencia", "", "ubicacion_incompleta", "Debe existir lugar o direcciÃ³n de ocurrencia.")
 
     has_error = any(issue["severity"] == "error" for issue in issues)
     if has_error or zona is None or fecha_suceso is None:
@@ -350,7 +379,7 @@ async def upload_excel(
     source_type = _source_type(file.filename or "")
     content = await file.read()
     if not content:
-        raise HTTPException(400, "El archivo está vacío.")
+        raise HTTPException(400, "El archivo estÃ¡ vacÃ­o.")
 
     file_hash = hashlib.sha256(content).hexdigest()
     safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{_safe_filename(file.filename or 'archivo')}"
@@ -489,7 +518,7 @@ async def upload_excel(
 
 @router.get("/", response_model=List[dict])
 def listar(
-    zona: Optional[int] = Query(None),
+    zona: Optional[str] = Query(None),
     tipo: Optional[str] = Query(None),
     turno: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
@@ -501,13 +530,14 @@ def listar(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ_ROLES)),
 ):
-    items = crud.listar_denuncias(db, zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q, limit=limit, offset=offset)
+    filters = _clean_filters(zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
+    items = crud.listar_denuncias(db, limit=limit, offset=offset, **filters)
     return [_serialize_denuncia(x) for x in items]
 
 
 @router.get("/count", response_model=dict)
 def count_denuncias(
-    zona: Optional[int] = None,
+    zona: Optional[str] = None,
     tipo: Optional[str] = None,
     turno: Optional[str] = None,
     estado: Optional[str] = None,
@@ -517,7 +547,8 @@ def count_denuncias(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ_ROLES)),
 ):
-    return {"total": crud.contar_denuncias(db, zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)}
+    filters = _clean_filters(zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
+    return {"total": crud.contar_denuncias(db, **filters)}
 
 
 @router.get("/stats/", response_model=dict)
@@ -629,7 +660,7 @@ def _filtered_dashboard_stats(rows: list[Denuncia]) -> dict:
 
 @router.get("/stats-advanced", response_model=dict)
 def stats_advanced(
-    zona: Optional[int] = None,
+    zona: Optional[str] = None,
     tipo: Optional[str] = None,
     turno: Optional[str] = None,
     estado: Optional[str] = None,
@@ -639,7 +670,7 @@ def stats_advanced(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles("Gerente", "JefeOperaciones", "Analista", "EncargadoSipCop")),
 ):
-    filters = {"zona": zona, "tipo": tipo, "turno": turno, "estado": estado, "desde": desde, "hasta": hasta, "q": q}
+    filters = _clean_filters(zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
     has_filters = any(value not in (None, "") for value in filters.values())
     if has_filters:
         rows = crud.listar_denuncias(db, limit=50000, offset=0, **filters)
@@ -671,7 +702,7 @@ def _filtered_for_export(db: Session, **filters):
 @router.get("/export.csv", response_class=StreamingResponse)
 def export_csv(
     request: Request,
-    zona: Optional[int] = None,
+    zona: Optional[str] = None,
     tipo: Optional[str] = None,
     turno: Optional[str] = None,
     estado: Optional[str] = None,
@@ -681,7 +712,8 @@ def export_csv(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ_ROLES)),
 ):
-    rows = _filtered_for_export(db, zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
+    filters = _clean_filters(zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
+    rows = _filtered_for_export(db, **filters)
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(["id", "numero_parte", "fecha_hora_suceso", "zona", "turno", "tipo", "estado", "lugar", "direccion", "source_file", "upload_batch_id"])
@@ -695,7 +727,7 @@ def export_csv(
 @router.get("/export.xlsx", response_class=StreamingResponse)
 def export_xlsx(
     request: Request,
-    zona: Optional[int] = None,
+    zona: Optional[str] = None,
     tipo: Optional[str] = None,
     turno: Optional[str] = None,
     estado: Optional[str] = None,
@@ -705,7 +737,8 @@ def export_xlsx(
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(*READ_ROLES)),
 ):
-    rows = _filtered_for_export(db, zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
+    filters = _clean_filters(zona=zona, tipo=tipo, turno=turno, estado=estado, desde=desde, hasta=hasta, q=q)
+    rows = _filtered_for_export(db, **filters)
     df = pd.DataFrame([_serialize_denuncia(d) for d in rows])
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:

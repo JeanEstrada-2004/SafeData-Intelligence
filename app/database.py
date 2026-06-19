@@ -1,4 +1,4 @@
-# app/database.py
+﻿# app/database.py
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
@@ -7,7 +7,8 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 load_dotenv()
 
 # 1) Si hay DATABASE_URL completa en el entorno, úsala tal cual.
-DATABASE_URL_ENV = os.getenv("DATABASE_URL", "postgresql+psycopg2://safedata_intelligence_user:CM3p3uGlfUzc9blHFucZazQW55d53rCr@dpg-d8l2t9647okc73bck7sg-a.oregon-postgres.render.com/safedata_intelligence").strip()
+# Render debe inyectar DATABASE_URL; no dejar credenciales reales como default.
+DATABASE_URL_ENV = os.getenv("DATABASE_URL", "").strip()
 
 DB_HOST = os.getenv("DB_HOST", "localhost").strip()
 DB_PORT = os.getenv("DB_PORT", "5432").strip()
@@ -20,7 +21,7 @@ def _is_local(host: str) -> bool:
     return h in ("localhost", "127.0.0.1", "::1") or h.endswith(".local")
 
 def _build_url() -> str:
-    # Si viene DATABASE_URL (completa), úsala sin tocar.
+    # Si viene DATABASE_URL (completa), Ãºsala sin tocar.
     if DATABASE_URL_ENV:
         return DATABASE_URL_ENV
 
@@ -51,11 +52,11 @@ def get_db():
     finally:
         db.close()
 
-# ---- Diagnóstico ----
+# ---- DiagnÃ³stico ----
 def quick_db_check():
     """
-    Devuelve versión de Postgres y conteo de filas en public.denuncias.
-    Útil para /health/db.
+    Devuelve versiÃ³n de Postgres y conteo de filas en public.denuncias.
+    Ãštil para /health/db.
     """
     with engine.connect() as conn:
         version = conn.execute(text("SELECT version()")).scalar()
@@ -63,7 +64,7 @@ def quick_db_check():
         try:
             total = conn.execute(text("SELECT COUNT(*) FROM public.denuncias")).scalar()
         except Exception as e:
-            # La tabla puede no existir aún: lo reportamos como warning en la versión
+            # La tabla puede no existir aÃºn: lo reportamos como warning en la versiÃ³n
             version = f"{version} (warn: {e})"
         return {"version": version, "denuncias": 0 if total is None else int(total)}
 

@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDateTime();
     initializeTooltips();
     initializeAnimations();
+    initializeCleanGetForms();
 });
 
 // Actualizar fecha y hora en tiempo real
@@ -339,4 +340,23 @@ function init() {
         // Limpiar los parámetros de la URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
+}
+
+function initializeCleanGetForms() {
+    document.querySelectorAll('form[method="get"]').forEach((form) => {
+        form.addEventListener('submit', () => {
+            form.querySelectorAll('input[name], select[name], textarea[name]').forEach((field) => {
+                if ((field.value || '').trim() === '') {
+                    field.dataset.originalName = field.name;
+                    field.removeAttribute('name');
+                }
+            });
+            setTimeout(() => {
+                form.querySelectorAll('[data-original-name]').forEach((field) => {
+                    field.name = field.dataset.originalName;
+                    delete field.dataset.originalName;
+                });
+            }, 0);
+        });
+    });
 }

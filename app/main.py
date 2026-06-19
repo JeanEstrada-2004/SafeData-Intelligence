@@ -148,6 +148,16 @@ def _serialize_denuncia(d) -> dict:
     }
 
 
+def _parse_optional_int(value) -> int | None:
+    """Acepta filtros vacíos de formularios GET sin romper validación."""
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 # ---------------------------
 # VISTAS HTML
 # ---------------------------
@@ -157,7 +167,7 @@ def _serialize_denuncia(d) -> dict:
 def dashboard(
     request: Request,
     db: Session = Depends(get_db),
-    zona: int | None = None,
+    zona: str | None = None,
     tipo: str | None = None,
     turno: str | None = None,
     estado: str | None = None,
@@ -172,6 +182,7 @@ def dashboard(
         return RedirectResponse("/login", status_code=302)
     """Renderiza el panel principal con estadÃ­sticas agregadas."""
 
+    zona_id = _parse_optional_int(zona)
     stats = crud.get_dashboard_stats(db)
     tipos_all = sorted({x[0] for x in db.query(models.Denuncia.tipo_denuncia).distinct().all() if x[0]})
     turnos_all = sorted({x[0] for x in db.query(models.Denuncia.turno).distinct().all() if x[0]})
@@ -196,7 +207,7 @@ def dashboard(
             "request": request,
             "stats": stats_ctx,
             "stats_json": stats.model_dump(),
-            "filters": {"zona": zona, "tipo": tipo or "", "turno": turno or "", "estado": estado or "", "desde": desde or "", "hasta": hasta or "", "q": q or ""},
+            "filters": {"zona": zona_id, "tipo": tipo or "", "turno": turno or "", "estado": estado or "", "desde": desde or "", "hasta": hasta or "", "q": q or ""},
             "tipos_unicos": tipos_all,
             "turnos_unicos": turnos_all,
             "estados_unicos": estados_all,
@@ -213,7 +224,7 @@ def carga_denuncias(request: Request, _auth=Depends(require_roles("Gerente", "En
 def listado_denuncias(
     request: Request,
     db: Session = Depends(get_db),
-    zona: int | None = None,
+    zona: str | None = None,
     tipo: str | None = None,
     turno: str | None = None,
     estado: str | None = None,
@@ -227,7 +238,8 @@ def listado_denuncias(
 
     per_page = 15
     page = max(1, int(page or 1))
-    filters = {"zona": zona, "tipo": tipo, "turno": turno, "estado": estado, "desde": desde, "hasta": hasta, "q": q}
+    zona_id = _parse_optional_int(zona)
+    filters = {"zona": zona_id, "tipo": tipo or None, "turno": turno or None, "estado": estado or None, "desde": desde or None, "hasta": hasta or None, "q": q or None}
     total = crud.contar_denuncias(db, **filters)
     items = crud.listar_denuncias(db, limit=per_page, offset=(page - 1) * per_page, **filters)
     tipos_unicos = sorted({x.tipo_denuncia for x in items if x.tipo_denuncia})
@@ -349,4 +361,3 @@ if __name__ == "__main__":  # pragma: no cover
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
-

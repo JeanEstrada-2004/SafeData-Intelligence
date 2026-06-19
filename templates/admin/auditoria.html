@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% block title %}Auditoria - SafeData Intelligence{% endblock %}
 {% block header %}Auditoria del sistema{% endblock %}
 {% block page_kicker %}Trazabilidad y control{% endblock %}
@@ -15,11 +15,11 @@
 
   <form class="compact-filter mb-3" method="get">
     <div>
-      <label class="form-label">Accion</label>
+      <label class="form-label">Acción</label>
       <select class="form-select" name="action">
         <option value="">Todas</option>
         {% for item in actions %}
-        <option value="{{ item }}" {% if filters.action == item %}selected{% endif %}>{{ item }}</option>
+        <option value="{{ item.value }}" {% if filters.action == item.value %}selected{% endif %}>{{ item.label }}</option>
         {% endfor %}
       </select>
     </div>
@@ -28,7 +28,7 @@
       <select class="form-select" name="status">
         <option value="">Todos</option>
         {% for item in statuses %}
-        <option value="{{ item }}" {% if filters.status == item %}selected{% endif %}>{{ item }}</option>
+        <option value="{{ item.value }}" {% if filters.status == item.value %}selected{% endif %}>{{ item.label }}</option>
         {% endfor %}
       </select>
     </div>
@@ -41,8 +41,8 @@
       <input class="form-control" type="date" name="hasta" value="{{ filters.hasta }}">
     </div>
     <div>
-      <label class="form-label">Busqueda</label>
-      <input class="form-control" type="text" name="q" value="{{ filters.q }}" placeholder="Ruta, IP, detalle">
+      <label class="form-label">Búsqueda</label>
+      <input class="form-control" type="text" name="q" value="{{ filters.q }}" placeholder="Buscar por módulo, IP o detalle">
     </div>
     <div class="d-flex align-items-end">
       <button class="btn btn-outline-secondary w-100" type="submit">
@@ -62,31 +62,31 @@
         <tr>
           <th>Fecha</th>
           <th>Usuario</th>
-          <th>Accion</th>
-          <th>Ruta</th>
-          <th>Estado</th>
+          <th>Acción</th>
+          <th>Módulo</th>
+          <th>Resultado</th>
           <th>IP</th>
           <th>Detalle</th>
         </tr>
       </thead>
       <tbody>
-        {% for r in records %}
+        {% for r in records_view %}
         <tr>
           <td class="text-nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') if r.created_at else '-' }}</td>
-          <td>{{ users.get(r.user_id).email if r.user_id and users.get(r.user_id) else 'Sistema / anonimo' }}</td>
-          <td><span class="badge-soft badge-soft-primary">{{ r.action }}</span></td>
-          <td class="text-break">{{ r.method or '' }} {{ r.path }}</td>
+          <td>{{ r.usuario }}</td>
+          <td><span class="badge-soft badge-soft-primary">{{ r.accion }}</span></td>
+          <td>{{ r.modulo }}</td>
           <td>
-            {% if r.status == 'ok' %}
-            <span class="badge-soft badge-soft-success">ok</span>
-            {% elif r.status %}
-            <span class="badge-soft badge-soft-warning">{{ r.status }}</span>
+            {% if r.status_raw == 'ok' %}
+            <span class="badge-soft badge-soft-success">{{ r.resultado }}</span>
+            {% elif r.status_raw %}
+            <span class="badge-soft badge-soft-warning">{{ r.resultado }}</span>
             {% else %}
-            <span class="badge-soft">-</span>
+            <span class="badge-soft">{{ r.resultado }}</span>
             {% endif %}
           </td>
           <td>{{ r.ip or '-' }}</td>
-          <td class="small text-muted text-break">{{ r.detail_json or '-' }}</td>
+          <td class="small text-muted text-break">{{ r.detalle }}</td>
         </tr>
         {% else %}
         <tr>
@@ -118,3 +118,4 @@
   {% endif %}
 </section>
 {% endblock %}
+

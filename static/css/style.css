@@ -1,4 +1,4 @@
-/* SafeData Intelligence UI system */
+﻿/* SafeData Intelligence UI system */
 :root {
   --sd-bg: #f3f6f8;
   --sd-surface: #ffffff;
@@ -813,6 +813,43 @@ main.col-lg-10 {
   background: #fff;
 }
 
+.filter-panel {
+  padding: 16px;
+  border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius);
+  background: #fff;
+  box-shadow: var(--sd-shadow-soft);
+}
+
+.dashboard-filter,
+.list-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.dashboard-filter .filter-actions,
+.list-filter-grid .filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+}
+
+.filter-search {
+  grid-column: span 2;
+}
+
+.filter-panel .form-select,
+.filter-panel .form-control {
+  width: 100%;
+  min-width: 0;
+}
+
+.filter-panel .btn {
+  min-width: 42px;
+}
+
 .compact-counter {
   display: inline-flex;
   align-items: center;
@@ -878,6 +915,13 @@ main.col-lg-10 {
   }
 }
 
+@media (max-width: 1399.98px) and (min-width: 768px) {
+  .dashboard-filter,
+  .list-filter-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+}
+
 @media (max-width: 767.98px) {
   .page-topbar {
     align-items: flex-start;
@@ -906,7 +950,72 @@ main.col-lg-10 {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-filter,
+  .list-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-search {
+    grid-column: auto;
+  }
+
   .schema-grid {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final filter layout overrides: keep operational filters compact on desktop. */
+.filter-panel.dashboard-filter {
+  display: grid !important;
+  grid-template-columns: 145px 145px minmax(130px, 0.9fr) minmax(150px, 1fr) minmax(190px, 1.35fr) minmax(160px, 1fr) minmax(220px, 1.6fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.filter-panel.list-filter {
+  display: block;
+}
+
+.list-filter .list-filter-grid {
+  display: grid !important;
+  grid-template-columns: minmax(110px, 0.75fr) minmax(190px, 1.35fr) minmax(130px, 0.9fr) minmax(150px, 1fr) 145px 145px minmax(230px, 1.8fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.filter-panel .filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  white-space: nowrap;
+}
+
+.filter-panel .filter-actions .btn-primary {
+  min-width: 104px;
+}
+
+@media (max-width: 1599.98px) {
+  .filter-panel.dashboard-filter,
+  .list-filter .list-filter-grid {
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 991.98px) {
+  .filter-panel.dashboard-filter,
+  .list-filter .list-filter-grid {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 575.98px) {
+  .filter-panel.dashboard-filter,
+  .list-filter .list-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-panel .filter-actions {
+    width: 100%;
+  }
+}
+

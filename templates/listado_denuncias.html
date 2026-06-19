@@ -1,14 +1,13 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Denuncias - SafeData Intelligence{% endblock %}
 {% block header %}Denuncias registradas{% endblock %}
 {% block page_kicker %}Consulta y segmentación de registros{% endblock %}
 
 {% block content %}
-<div class="compact-filter mb-3">
-  <div class="card-body">
-    <form id="filtrosForm" class="row g-3 align-items-end" method="get">
-      <div class="col-md-2">
+<section class="filter-panel list-filter mb-3">
+    <form id="filtrosForm" class="list-filter-grid" method="get">
+      <div>
         <label class="form-label">Zona</label>
         <select class="form-select" id="filtroZona" name="zona">
           <option value="">Todas</option>
@@ -17,7 +16,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
+      <div>
         <label class="form-label">Tipo</label>
         <select class="form-select" id="filtroTipo" name="tipo">
           <option value="">Todos</option>
@@ -26,7 +25,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
+      <div>
         <label class="form-label">Turno</label>
         <select class="form-select" id="filtroTurno" name="turno">
           <option value="">Todos</option>
@@ -35,7 +34,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
+      <div>
         <label class="form-label">Estado</label>
         <select class="form-select" name="estado">
           <option value="">Todos</option>
@@ -44,19 +43,19 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
+      <div>
         <label class="form-label">Desde</label>
         <input type="date" class="form-control" name="desde" value="{{ filters.desde or '' }}">
       </div>
-      <div class="col-md-2">
+      <div>
         <label class="form-label">Hasta</label>
         <input type="date" class="form-control" name="hasta" value="{{ filters.hasta or '' }}">
       </div>
-      <div class="col-md-4">
+      <div class="filter-search">
         <label class="form-label">Buscar</label>
         <input type="text" class="form-control" name="q" value="{{ filters.q or '' }}" placeholder="Número de parte, texto, lugar">
       </div>
-      <div class="col-md-2 d-flex gap-2">
+      <div class="filter-actions">
         <button type="submit" class="btn btn-primary flex-fill">
           <i class="fas fa-filter"></i>
         </button>
@@ -65,8 +64,7 @@
         </a>
       </div>
     </form>
-  </div>
-</div>
+</section>
 
 <div class="card">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -190,3 +188,4 @@ async function verDetalle(id) {
 }
 </script>
 {% endblock %}
+

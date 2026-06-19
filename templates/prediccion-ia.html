@@ -95,7 +95,7 @@ function renderNoData(data) {
     <div class="risk-hero ${meta.cls}">
       <div class="risk-badge"><i class="fa-solid ${meta.icon}"></i>${meta.label}</div>
       <h2>No hay historial suficiente</h2>
-      <p>${data.mensaje || "No se encontraron denuncias para la combinación seleccionada."}</p>
+      <p>${data.mensaje || "No se encontraron incidencias para la combinación seleccionada."}</p>
     </div>
     <div class="risk-grid mt-3">
       <div class="metric-tile"><div class="value">0</div><div class="label">Incidentes históricos</div></div>
@@ -112,7 +112,7 @@ function renderResult(data) {
   }
 
   const meta = riskMeta(data.nivel_riesgo);
-  const probability = Math.round((data.probabilidad || 0) * 1000) / 10;
+  const confidence = Math.round((data.probabilidad || 0) * 1000) / 10;
   const tipos = data.tipos_comunes || [];
   const recomendaciones = data.recomendaciones || [];
   const methodLabel = data.model_type === "ml" ? "Modelo ML" : (data.model_type === "sin_datos" ? "Sin datos" : "Heurística histórica");
@@ -120,9 +120,14 @@ function renderResult(data) {
   resultadoDiv.innerHTML = `
     <div class="risk-hero ${meta.cls}">
       <div class="risk-badge"><i class="fa-solid ${meta.icon}"></i>${meta.label}</div>
-      <div class="risk-score">${probability}<span>%</span></div>
-      <div class="risk-bar"><span style="width:${probability}%"></span></div>
+      <div class="small mt-3 text-uppercase fw-bold opacity-75">Confianza del cálculo</div>
+      <div class="risk-score">${confidence}<span>%</span></div>
+      <div class="risk-bar"><span style="width:${confidence}%"></span></div>
       <p>Zona ${data.zona} · ${String(data.turno || "").toUpperCase()} · ${data.incidentes_historicos} incidentes similares</p>
+      <div class="small mt-2">
+        <strong>Lectura:</strong> el sistema clasifica este escenario como <strong>${meta.label}</strong>.
+        El porcentaje indica la confianza del cálculo, no una probabilidad directa de ocurrencia.
+      </div>
       <div class="small mt-2">Método: <strong>${methodLabel}</strong> · ${data.explicacion || ""}</div>
     </div>
 

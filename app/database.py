@@ -8,7 +8,7 @@ load_dotenv()
 
 # 1) Si hay DATABASE_URL completa en el entorno, úsala tal cual.
 # Render debe inyectar DATABASE_URL; no dejar credenciales reales como default.
-DATABASE_URL_ENV = os.getenv("DATABASE_URL", "").strip()
+DATABASE_URL_ENV = os.getenv("DATABASE_URL", "postgresql+psycopg2://safedata_intelligence_user:CM3p3uGlfUzc9blHFucZazQW55d53rCr@dpg-d8l2t9647okc73bck7sg-a.oregon-postgres.render.com/safedata_intelligence").strip()
 
 DB_HOST = os.getenv("DB_HOST", "localhost").strip()
 DB_PORT = os.getenv("DB_PORT", "5432").strip()

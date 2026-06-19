@@ -20,10 +20,28 @@ def _is_local(host: str) -> bool:
     h = (host or "").lower()
     return h in ("localhost", "127.0.0.1", "::1") or h.endswith(".local")
 
+
+def _normalize_database_url(url: str) -> str:
+    """Adapta URLs de proveedores como Render al driver usado por SQLAlchemy."""
+
+    normalized = (url or "").strip()
+    if normalized.startswith("postgres://"):
+        normalized = "postgresql+psycopg2://" + normalized[len("postgres://"):]
+    elif normalized.startswith("postgresql://"):
+        normalized = "postgresql+psycopg2://" + normalized[len("postgresql://"):]
+
+    if "sslmode=" not in normalized and not any(
+        marker in normalized for marker in ("localhost", "127.0.0.1", "::1")
+    ):
+        separator = "&" if "?" in normalized else "?"
+        normalized = f"{normalized}{separator}sslmode=require"
+    return normalized
+
+
 def _build_url() -> str:
-    # Si viene DATABASE_URL (completa), Ãºsala sin tocar.
+    # Si viene DATABASE_URL completa, úsala normalizada para PostgreSQL remoto.
     if DATABASE_URL_ENV:
-        return DATABASE_URL_ENV
+        return _normalize_database_url(DATABASE_URL_ENV)
 
     # Construye a partir de partes. Agrega sslmode=require SOLO si no es local.
     auth = DB_USER if not DB_PASS else f"{DB_USER}:{DB_PASS}"

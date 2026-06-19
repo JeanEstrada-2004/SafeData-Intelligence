@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from . import crud, models
-from .database import engine, get_db, quick_db_check
+from .database import DATABASE_URL, engine, get_db, quick_db_check
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.engine import make_url
 import time
@@ -47,10 +47,10 @@ async def on_startup():
         try:
             # Log minimal DB info for debugging (no credentials)
             try:
-                url = make_url(os.getenv("DATABASE_URL", ""))
-                logging.getLogger(__name__).info(f"Connecting to DB host={url.host} db={url.database}")
+                url = make_url(DATABASE_URL)
+                logging.getLogger(__name__).info("Connecting to DB host=%s db=%s", url.host, url.database)
             except Exception:
-                logging.getLogger(__name__).info("Connecting to DB (DATABASE_URL present)")
+                logging.getLogger(__name__).info("Connecting to configured database")
             # Intentar conectar y crear tablas
             with engine.connect() as conn:
                 models.Base.metadata.create_all(bind=engine)
@@ -65,7 +65,7 @@ async def on_startup():
             delay = min(delay * 2, 10)
     # Si agotamos reintentos, levantamos excepción para que la plataforma lo detecte
     logging.getLogger(__name__).error("Could not connect to DB after retries; aborting startup")
-    raise RuntimeError("Database unavailable after startup retries")
+    raise RuntimeError("Database unavailable after startup retries. Verify DATABASE_URL or DB_* environment variables.")
 
 # API routers
 app.include_router(denuncias_router.router, prefix="/api/denuncias", tags=["denuncias"])
